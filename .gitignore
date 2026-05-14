@@ -1,0 +1,7 @@
+.env
+data/mlb_v2.db
+data/picks/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
