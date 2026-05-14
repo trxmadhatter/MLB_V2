@@ -1,0 +1,65 @@
+[
+  {
+    "id": "evt_abc123",
+    "sport_key": "baseball_mlb",
+    "sport_title": "MLB",
+    "commence_time": "2026-05-14T19:10:00Z",
+    "home_team": "New York Yankees",
+    "away_team": "Boston Red Sox",
+    "bookmakers": [
+      {
+        "key": "bovada",
+        "title": "Bovada",
+        "last_update": "2026-05-14T05:00:00Z",
+        "markets": [
+          {
+            "key": "pitcher_strikeouts",
+            "last_update": "2026-05-14T05:00:00Z",
+            "outcomes": [
+              {"name": "Over",  "description": "Gerrit Cole", "price": -130, "point": 7.5},
+              {"name": "Under", "description": "Gerrit Cole", "price":  100, "point": 7.5}
+            ]
+          }
+        ]
+      },
+      {
+        "key": "draftkings",
+        "title": "DraftKings",
+        "last_update": "2026-05-14T05:01:00Z",
+        "markets": [
+          {
+            "key": "pitcher_strikeouts",
+            "last_update": "2026-05-14T05:01:00Z",
+            "outcomes": [
+              {"name": "Over",  "description": "Gerrit Cole", "price": -115, "point": 7.5},
+              {"name": "Under", "description": "Gerrit Cole", "price": -105, "point": 7.5}
+            ]
+          }
+        ]
+      },
+      {
+        "key": "fanduel",
+        "title": "FanDuel",
+        "last_update": "2026-05-14T05:02:00Z",
+        "markets": [
+          {
+            "key": "pitcher_strikeouts",
+            "last_update": "2026-05-14T05:02:00Z",
+            "outcomes": [
+              {"name": "Over",  "description": "Gerrit Cole", "price": -112, "point": 7.5},
+              {"name": "Under", "description": "Gerrit Cole", "price": -108, "point": 7.5}
+            ]
+          },
+          {
+            "key": "batter_hits",
+            "last_update": "2026-05-14T05:02:00Z",
+            "outcomes": [
+              {"name": "Over",  "description": "Aaron Judge", "price": -120, "point": 1.5},
+              {"name": "Under", "description": "Aaron Judge", "price":  100, "point": 1.5}
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]
