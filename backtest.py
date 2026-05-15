@@ -62,6 +62,8 @@ def init_backtest_db(conn: sqlite3.Connection) -> None:
             result                TEXT    NOT NULL DEFAULT 'PENDING',
             actual_stat           REAL,
             profit_units          REAL,
+            signal_score          INTEGER,
+            signal_breakdown      TEXT,
             UNIQUE(pick_date, player_name, market_key, selection, point)
         );
 
@@ -84,12 +86,14 @@ def _store_picks(
             (pick_date, player_name, market_key, selection, point,
              bovada_price, bovada_fair_prob, consensus_fair_prob,
              consensus_book_count, edge, ev, recommendation,
-             result, actual_stat, profit_units)
+             result, actual_stat, profit_units,
+             signal_score, signal_breakdown)
         VALUES
             (:pick_date, :player_name, :market_key, :selection, :point,
              :bovada_price, :bovada_fair_prob, :consensus_fair_prob,
              :consensus_book_count, :edge, :ev, :recommendation,
-             :result, :actual_stat, :profit_units)
+             :result, :actual_stat, :profit_units,
+             :signal_score, :signal_breakdown)
     """, picks)
     bt_conn.commit()
 
@@ -104,7 +108,7 @@ def _analyze_day(snapshot_rows: list, pulled_at: str, date_str: str) -> list:
     mem.row_factory = sqlite3.Row
     init_db(mem)
     insert_snapshots(mem, snapshot_rows)
-    _analyze(mem, pulled_at, date_str)
+    _analyze(mem, pulled_at, date_str, game_data=None)
     picks = [dict(r) for r in mem.execute(
         "SELECT * FROM daily_picks WHERE pick_date=?", (date_str,)
     ).fetchall()]
@@ -153,7 +157,7 @@ def run_backtest_day(
     pulled_at, snapshot_rows = pull_historical_snapshots(api_key, date_str)
 
     if not snapshot_rows:
-        print(f"  {date_str}: no snapshot rows — skipping")
+        print(f"  {date_str}: no snapshot rows - skipping")
         return 0
 
     print(f"  {date_str}: {len(snapshot_rows)} snapshot rows - analyzing...")
@@ -191,7 +195,7 @@ def run_backtest(
             try:
                 run_backtest_day(api_key, date_str, bt_conn)
             except Exception as exc:
-                print(f"  {date_str}: ERROR — {exc} — skipping day")
+                print(f"  {date_str}: ERROR - {exc} - skipping day")
         else:
             print(f"  {date_str}: skipping (today or future)")
         d += timedelta(days=1)
