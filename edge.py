@@ -23,9 +23,12 @@ def compute_ev(bovada_price: int, consensus_fair_prob: float) -> float:
 
 def classify(edge: float, ev: float, *, market_key: str = "", selection: str = "", price: int = 0) -> str:
     """Legacy edge-only classifier. Kept for backtest replay compatibility."""
-    if (market_key, selection) not in BET_WHITELIST:
+    mkt = (market_key, selection)
+    if mkt not in BET_WHITELIST:
         return "NO_BET"
     if not (BET_PRICE_MIN <= price <= BET_PRICE_MAX):
+        return "NO_BET"
+    if edge < MARKET_EDGE_MIN.get(mkt, 0.0):
         return "NO_BET"
     if edge >= EDGE_RECOMMENDED:
         return "RECOMMENDED"
@@ -35,7 +38,7 @@ def classify(edge: float, ev: float, *, market_key: str = "", selection: str = "
 
 
 def classify_by_score(score: int, edge: float, market_key: str, selection: str,
-                      price: int = 0) -> str:
+                      price: int | None = None) -> str:
     """
     Score-based classifier (new system).
     Hard gates: whitelist, per-market min edge, price exclusions, then score tier.
@@ -47,7 +50,7 @@ def classify_by_score(score: int, edge: float, market_key: str, selection: str,
         return "NO_BET"
     if edge < MARKET_EDGE_MIN.get(mkt, 0.0):
         return "NO_BET"
-    if price and price >= 100 and mkt in MARKET_EXCLUDE_PLUS_ODDS:
+    if price is not None and price >= 100 and mkt in MARKET_EXCLUDE_PLUS_ODDS:
         return "NO_BET"
     if score >= SCORE_RECOMMENDED:
         return "RECOMMENDED"

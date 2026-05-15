@@ -132,11 +132,10 @@ def main() -> None:
         _seg(all_rows, "mkt", lambda r: f"{r['market_key']} {r['selection']}")
     )
 
-    # Whitelist only
-    WHITELIST = {("pitcher_outs", "Over"), ("batter_total_bases", "Under"),
-                 ("pitcher_hits_allowed", "Under")}
+    # Whitelist only — keep in sync with config.BET_WHITELIST
+    from config import BET_WHITELIST
     wl_rows = [r for r in all_rows
-               if (r["market_key"], r["selection"]) in WHITELIST]
+               if (r["market_key"], r["selection"]) in BET_WHITELIST]
 
     # 6. Whitelist by edge bucket
     _print_table(
@@ -199,38 +198,33 @@ def main() -> None:
 
     # ── NEW FILTER VALIDATION ────────────────────────────────────────────────
     # Simulate new whitelist rules on backtest data and compare old vs new
-    NEW_WHITELIST = {
-        ("pitcher_outs",         "Over"),
-        ("batter_total_bases",   "Under"),
+    from config import BET_WHITELIST as _NEW_WL, MARKET_EDGE_MIN as _MEM, MARKET_EXCLUDE_PLUS_ODDS as _MEP
+
+    _OLD_WL = {
+        ("pitcher_outs", "Over"),
+        ("batter_total_bases", "Under"),
         ("pitcher_hits_allowed", "Under"),
-        ("pitcher_strikeouts",   "Under"),
     }
-    MARKET_EDGE_MIN = {("pitcher_strikeouts", "Under"): 0.08}
-    MARKET_EXCLUDE_PLUS = {("pitcher_outs", "Over")}
 
     def new_filter(r) -> bool:
         mkt = (r["market_key"], r["selection"])
-        if mkt not in NEW_WHITELIST:
+        if mkt not in _NEW_WL:
             return False
-        edge = r["edge"]
-        if edge <= 0:
+        edge = r["edge"] or 0.0
+        if edge <= 0.0:
             return False
-        if edge < MARKET_EDGE_MIN.get(mkt, 0.0):
+        if edge < _MEM.get(mkt, 0.0):
             return False
-        if r["bovada_price"] >= 100 and mkt in MARKET_EXCLUDE_PLUS:
+        price = r["bovada_price"]
+        if price is not None and price >= 100 and mkt in _MEP:
             return False
         return True
 
     def old_filter(r) -> bool:
-        return (r["market_key"], r["selection"]) in {
-            ("pitcher_outs", "Over"),
-            ("batter_total_bases", "Under"),
-            ("pitcher_hits_allowed", "Under"),
-        } and r["edge"] > 0
+        return (r["market_key"], r["selection"]) in _OLD_WL and (r["edge"] or 0) > 0
 
-    # Split: training = first 35 days, held-out = last 12 days
-    all_dates = sorted(set(r["pick_date"] for r in all_rows))
-    split_date = all_dates[int(len(all_dates) * 0.75)]  # ~75/25 split
+    # Fixed split date (75/25 of Mar 29–May 14 2026 dataset; hardcoded for reproducibility)
+    split_date = "2026-05-04"
 
     def summarize(rows, label):
         wins = sum(1 for r in rows if r["result"] == "WIN")
