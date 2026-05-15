@@ -53,9 +53,9 @@ def compute_calibration(bt_conn: sqlite3.Connection) -> list[dict]:
         decided = b["wins"] + b["losses"]
         if decided < MIN_SAMPLE:
             continue
-        win_rate  = b["wins"] / decided
-        avg_price = sum(b["prices"]) / len(b["prices"])
-        bev       = _breakeven(int(round(avg_price)))
+        win_rate = b["wins"] / decided
+        # Correct: average per-pick BEV, not BEV of avg price
+        avg_bev = sum(_breakeven(p) for p in b["prices"]) / len(b["prices"])
         results.append({
             "market_key":        mkt,
             "selection":         sel,
@@ -65,10 +65,10 @@ def compute_calibration(bt_conn: sqlite3.Connection) -> list[dict]:
             "pushes":            b["pushes"],
             "total":             decided,
             "win_rate":          round(win_rate, 4),
-            "breakeven":         round(bev, 4),
-            "edge_vs_breakeven": round(win_rate - bev, 4),
+            "breakeven":         round(avg_bev, 4),
+            "edge_vs_breakeven": round(win_rate - avg_bev, 4),
             "net_units":         round(b["profit"], 2),
-            "profitable":        win_rate >= bev,
+            "profitable":        win_rate >= avg_bev,
         })
 
     results.sort(key=lambda x: x["edge_vs_breakeven"], reverse=True)
