@@ -98,7 +98,7 @@ def get_game_results(date_str: str) -> list[dict]:
                                 "player_name":      full_name,
                                 "player_name_norm": norm,
                                 "market_key":       mkt,
-                                "stat_value":       int(val),
+                                "stat_value":       int(float(val)),
                             })
     return results
 
