@@ -39,10 +39,16 @@ def _log_quota(resp: requests.Response) -> None:
     print(f"  quota — used: {used}  remaining: {remaining}")
 
 
-def parse_snapshots(events: list[dict], pulled_at: str) -> list[dict]:
+def parse_snapshots(
+    events: list[dict],
+    pulled_at: str,
+    markets: list[str] | None = None,
+) -> list[dict]:
     """
     Flatten a list of event objects into rows for props_snapshots insert.
     Accepts the full event list from /events/{id}/odds or a fixture list.
+
+    markets: if None, accept all market keys; if a list, only include those keys.
     """
     rows: list[dict] = []
     for event in events:
@@ -54,7 +60,7 @@ def parse_snapshots(events: list[dict], pulled_at: str) -> list[dict]:
             bookmaker_key = book["key"]
             last_update   = book.get("last_update")
             for market in book.get("markets", []):
-                if market["key"] not in V1_MARKETS:
+                if markets is not None and market["key"] not in markets:
                     continue
                 for outcome in market.get("outcomes", []):
                     rows.append({

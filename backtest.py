@@ -328,7 +328,14 @@ def main() -> None:
                         help="End date YYYY-MM-DD (default: yesterday)")
     parser.add_argument("--report-only", action="store_true",
                         help="Print report from existing data without fetching")
+    parser.add_argument("--reset", action="store_true",
+                        help="Delete backtest DB before running (fresh start with all markets)")
     args = parser.parse_args()
+
+    if args.reset and not args.report_only:
+        if BACKTEST_DB.exists():
+            BACKTEST_DB.unlink()
+            print("  Backtest DB reset. Starting fresh.")
 
     bt_conn = _get_bt_conn()
 
