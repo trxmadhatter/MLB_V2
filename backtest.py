@@ -261,6 +261,11 @@ def _report_by_edge_bucket(bt_conn: sqlite3.Connection) -> list:
     """).fetchall()
 
 
+def _report_calibration(bt_conn: sqlite3.Connection) -> list:
+    from market_learn import compute_calibration
+    return compute_calibration(bt_conn)
+
+
 def print_report(
     bt_conn: sqlite3.Connection,
     start_date: str,
@@ -302,6 +307,25 @@ def print_report(
         wp  = f"{r['win_pct']:.1f}%" if r['win_pct'] is not None else "  --"
         roi = f"{r['roi_pct']:+.1f}%" if r['roi_pct'] is not None else "  --"
         print(f"  {r['bucket']:<16} {r['total']:>4}  {wlp:>11}  {wp:>6}  {r['net_units']:>+7.2f}  {roi:>6}")
+
+    cal = _report_calibration(bt_conn)
+    if cal:
+        print("\n-- MARKET CALIBRATION (actual vs break-even, min 20 graded) ----")
+        print(f"  {'MARKET':<22} {'SEL':<6} {'BUCKET':<9} {'W-L':>7}  {'WIN%':>6}  {'BEV':>6}  {'DIFF':>7}  {'NET':>7}")
+        print("  " + "-" * 76)
+        for r in cal:
+            wl   = f"{r['wins']}-{r['losses']}"
+            diff = f"{r['edge_vs_breakeven']:+.1%}"
+            flag = "BET " if r["profitable"] else "SKIP"
+            print(
+                f"  [{flag}] {r['market_key']:<20} {r['selection']:<6} "
+                f"{r['edge_bucket']:<9} {wl:>7}  {r['win_rate']:.1%}  "
+                f"{r['breakeven']:.1%}  {diff:>7}  {r['net_units']:>+7.2f}"
+            )
+
+        from market_learn import save_calibration
+        save_calibration(cal)
+        print(f"\n  Calibration saved to data/market_calibration.json")
 
     print()
 

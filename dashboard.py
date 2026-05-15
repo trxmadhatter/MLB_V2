@@ -341,6 +341,36 @@ def _render_learning(conn) -> None:
         )
         st.plotly_chart(fig, use_container_width=True)
 
+    from market_learn import load_calibration
+    cal = load_calibration()
+    if cal:
+        st.markdown("---")
+        st.subheader("Market Calibration (from backtest)")
+        st.caption(
+            "Observed win rate vs break-even. BET = profitable, SKIP = below break-even. "
+            "Min 20 graded picks per row. Refresh: python backtest.py --report-only"
+        )
+        rows = []
+        for r in cal:
+            rows.append({
+                "Signal":  "BET" if r["profitable"] else "SKIP",
+                "Market":  r["market_key"],
+                "Side":    r["selection"],
+                "Edge":    r["edge_bucket"],
+                "W-L":     f"{r['wins']}-{r['losses']}",
+                "Win%":    f"{r['win_rate']:.1%}",
+                "Need":    f"{r['breakeven']:.1%}",
+                "Diff":    f"{r['edge_vs_breakeven']:+.1%}",
+                "Net":     f"{r['net_units']:+.2f}u",
+            })
+        df = pd.DataFrame(rows)
+
+        def _hl(row):
+            c = "background-color: #1a3a1a" if row["Signal"] == "BET" else "background-color: #3a1a1a"
+            return [c] * len(row)
+
+        st.dataframe(df.style.apply(_hl, axis=1), use_container_width=True, hide_index=True)
+
 
 def main() -> None:
     st.set_page_config(page_title="MLB V2", page_icon="⚾", layout="wide")
