@@ -96,6 +96,21 @@ def fetch_pitcher_stats(player_id: int, season: int | None = None) -> dict | Non
         def _avg(key):
             return round(sum(int(s.get(key, 0)) for s in last5) / len(last5), 2) if last5 else None
 
+        def _ip_to_dec(ip_str) -> float:
+            # MLB API: "6.2" = 6 innings + 2 outs = 6.667 innings
+            try:
+                s = str(ip_str or "0")
+                if "." in s:
+                    full, frac = s.split(".", 1)
+                    return int(full) + int(frac) / 3.0
+                return float(s)
+            except (ValueError, TypeError):
+                return 0.0
+
+        recent_ip = round(
+            sum(_ip_to_dec(s.get("inningsPitched", "0")) for s in last5) / len(last5), 2
+        ) if last5 else None
+
         r_sea = requests.get(
             f"{_BASE}/people/{player_id}/stats",
             params={"stats": "season", "season": season, "group": "pitching", "gameType": "R"},
@@ -111,13 +126,19 @@ def fetch_pitcher_stats(player_id: int, season: int | None = None) -> dict | Non
             except (TypeError, ValueError):
                 return None
 
+        gs = _f(sea.get("gamesStarted")) or _f(sea.get("gamesPitched"))
+        sea_ip_total = _ip_to_dec(sea.get("inningsPitched", "0"))
+        season_ip_per_start = round(sea_ip_total / gs, 2) if sea_ip_total and gs and gs > 0 else None
+
         return {
-            "recent_k":    _avg("strikeOuts"),
-            "recent_h":    _avg("hits"),
-            "recent_er":   _avg("earnedRuns"),
-            "season_k9":   _f(sea.get("strikeoutsPer9Inn")),
-            "season_era":  _f(sea.get("era")),
-            "season_whip": _f(sea.get("whip")),
+            "recent_k":             _avg("strikeOuts"),
+            "recent_h":             _avg("hits"),
+            "recent_er":            _avg("earnedRuns"),
+            "recent_ip":            recent_ip,
+            "season_k9":            _f(sea.get("strikeoutsPer9Inn")),
+            "season_era":           _f(sea.get("era")),
+            "season_whip":          _f(sea.get("whip")),
+            "season_ip_per_start":  season_ip_per_start,
         }
     except Exception:
         return None

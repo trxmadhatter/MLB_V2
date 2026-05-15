@@ -61,6 +61,8 @@ def init_db(conn: sqlite3.Connection) -> None:
             notes                 TEXT,
             confidence_score      INTEGER,
             confidence_factors    TEXT,
+            signal_score          INTEGER,
+            signal_breakdown      TEXT,
             UNIQUE(event_id, player_name, market_key, selection, point, pick_date)
         );
 
@@ -134,6 +136,9 @@ def get_snapshots(conn: sqlite3.Connection, pulled_at: str) -> list[sqlite3.Row]
 
 
 def upsert_pick(conn: sqlite3.Connection, pick: dict) -> None:
+    pick = {**pick}
+    pick.setdefault("signal_score", None)
+    pick.setdefault("signal_breakdown", None)
     conn.execute("""
         INSERT INTO daily_picks
             (pick_date, pulled_at, event_id, commence_time, home_team, away_team,

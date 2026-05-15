@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 
 from config import PICKS_DIR, BOVADA_KEYS, MIN_CONSENSUS_BOOKS
-from db import get_conn, init_db, upsert_pick, log_no_bet, get_snapshots, update_pick_signal
+from db import get_conn, init_db, upsert_pick, log_no_bet, get_snapshots
 from pull_props import pull_and_store
 from consensus import compute_consensus, vig_remove_pair
 from edge import bovada_break_even, compute_edge, compute_ev, classify_by_score

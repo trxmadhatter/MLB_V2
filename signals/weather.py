@@ -25,10 +25,16 @@ def _tailwind_factor(wind_dir_deg: float, cf_bearing_deg: float) -> float:
     """
     Returns 0.0 (full headwind) to 1.0 (full tailwind) based on
     how much wind blows toward CF (helps Overs) vs from CF (helps Unders).
+
+    wind_dir_deg: meteorological convention — direction wind is blowing FROM.
+    cf_bearing_deg: compass bearing from home plate TO center field.
+    Tailwind = wind blowing FROM the direction OPPOSITE to CF (i.e., pushing ball toward CF).
     """
-    diff = abs((wind_dir_deg - cf_bearing_deg + 180) % 360 - 180)
-    # diff=0 -> wind blows exactly toward CF (tailwind for batters) -> 1.0
-    # diff=180 -> wind blows exactly from CF (headwind for batters) -> 0.0
+    # Convert "wind from" direction to "wind toward" direction
+    wind_toward_deg = (wind_dir_deg + 180) % 360
+    diff = abs((wind_toward_deg - cf_bearing_deg + 180) % 360 - 180)
+    # diff=0  -> wind blows exactly toward CF (tailwind) -> 1.0
+    # diff=180 -> wind blows exactly away from CF (headwind) -> 0.0
     return 1.0 - (diff / 180.0)
 
 

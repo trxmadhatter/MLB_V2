@@ -81,6 +81,7 @@ def _store_picks(
     pick_date: str,
     picks: list,
 ) -> None:
+    rows = [{**p, "signal_score": p.get("signal_score"), "signal_breakdown": p.get("signal_breakdown")} for p in picks]
     bt_conn.executemany("""
         INSERT OR IGNORE INTO backtest_picks
             (pick_date, player_name, market_key, selection, point,
@@ -94,7 +95,7 @@ def _store_picks(
              :consensus_book_count, :edge, :ev, :recommendation,
              :result, :actual_stat, :profit_units,
              :signal_score, :signal_breakdown)
-    """, picks)
+    """, rows)
     bt_conn.commit()
 
 

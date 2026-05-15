@@ -179,10 +179,11 @@ def _score_pitcher_strikeouts(
         k9_vl = splits.get("k9_vs_lhh")
         k9_vr = splits.get("k9_vs_rhh")
         if k9_vl and k9_vr:
-            avg_k9 = (k9_vl + k9_vr) / 2
+            # Over: use higher K/9 split (best case); Under: use lower (worst case)
+            k9_used = max(k9_vl, k9_vr) if selection == "Over" else min(k9_vl, k9_vr)
             add("platoon_alignment",
-                _season_rate_signal(avg_k9, 8.0, selection, 1.5),
-                f"k9_vL={k9_vl} k9_vR={k9_vr}")
+                _season_rate_signal(k9_used, 8.0, selection, 1.5),
+                f"k9_vL={k9_vl} k9_vR={k9_vr} used={k9_used:.1f}")
         else:
             add("platoon_alignment", 0.5, "splits unavailable")
     else:
@@ -229,7 +230,7 @@ def _score_pitcher_hits_allowed(
 
         whip = stats.get("season_whip")
         # WHIP: 1.0 is excellent (fewer hits), 1.5 is poor. For Under: low WHIP is good.
-        add("season_whip", _season_rate_signal(whip, 1.25, "Under" if selection == "Under" else "Over", 0.15),
+        add("season_whip", _season_rate_signal(whip, 1.25, selection, 0.15),
             f"whip={whip}")
 
         opp_team = (game_info.get("away_team") if game_info else None)
@@ -246,10 +247,11 @@ def _score_pitcher_hits_allowed(
         h9_vl = splits.get("h9_vs_lhh")
         h9_vr = splits.get("h9_vs_rhh")
         if h9_vl and h9_vr:
-            avg_h9 = (h9_vl + h9_vr) / 2
+            # Under: use lower H/9 (pitcher better vs that side); Over: higher H/9
+            h9_used = min(h9_vl, h9_vr) if selection == "Under" else max(h9_vl, h9_vr)
             add("platoon_alignment",
-                _season_rate_signal(avg_h9, 9.0, selection, 1.5),
-                f"h9_vL={h9_vl} h9_vR={h9_vr}")
+                _season_rate_signal(h9_used, 9.0, selection, 1.5),
+                f"h9_vL={h9_vl} h9_vR={h9_vr} used={h9_used:.1f}")
         else:
             add("platoon_alignment", 0.5, "splits unavailable")
     else:
@@ -290,13 +292,13 @@ def _score_pitcher_outs(
 
     if player_id:
         stats = fetch_pitcher_stats(player_id, season) or {}
-        recent_k = stats.get("recent_k")
-        add("recent_ip", _recent_rate_signal(recent_k, point / 3.0, selection, 1.0),
-            f"recent_k={recent_k} (proxy for IP)")
+        recent_ip = stats.get("recent_ip")
+        add("recent_ip", _recent_rate_signal(recent_ip, point / 3.0, selection, 0.5),
+            f"recent_ip={recent_ip} IP/start (line={point/3.0:.1f}IP)")
 
-        k9 = stats.get("season_k9")
-        add("season_ip", _season_rate_signal(k9, 8.0, selection, 1.5),
-            f"season_k9={k9}")
+        season_ip = stats.get("season_ip_per_start")
+        add("season_ip", _recent_rate_signal(season_ip, point / 3.0, selection, 0.5),
+            f"season_ip_per_start={season_ip}")
 
         opp_team = (game_info.get("away_team") if game_info else None)
         if opp_team:
@@ -326,6 +328,7 @@ def _score_batter(
     home_team: str,
     away_team: str,
     season: int,
+    player_team: str | None = None,
 ) -> list[dict]:
     from stats import fetch_batter_stats
     from signals.splits import get_batter_splits
@@ -351,10 +354,17 @@ def _score_batter(
         _weather_signal(weather, selection),
         f"tailwind={weather.get('tailwind_factor', 0.5):.2f}")
 
-    # SP quality — find the opposing SP
+    # SP quality — find the opposing SP (batter on home team faces away SP, and vice versa)
     sp = None
     if game_info:
-        sp = game_info.get("away_sp") or game_info.get("home_sp")
+        pt = (player_team or "").lower()
+        ht = home_team.lower()
+        if pt and (pt in ht or ht in pt):
+            # batter is on home team -> faces away SP
+            sp = game_info.get("away_sp") or game_info.get("home_sp")
+        else:
+            # batter is on away team (or unknown) -> faces home SP
+            sp = game_info.get("home_sp") or game_info.get("away_sp")
     if sp and sp.get("era") is not None:
         add("sp_quality", _era_signal(sp["era"], selection),
             f"sp={sp.get('name','?')} ERA={sp['era']:.2f}")
@@ -430,12 +440,14 @@ def score_pick(
         from signals.lineups import find_game
         game_info = find_game(game_data, home_team, away_team)
 
-    # Resolve player_id
+    # Resolve player_id and team
     player_id = None
+    player_team = None
     try:
         info = find_player_info(player_name, season)
         if info:
             player_id = info["id"]
+            player_team = info.get("team_name", "")
     except Exception:
         pass
 
@@ -452,7 +464,8 @@ def score_pick(
         elif market_key in ("batter_total_bases", "batter_hits"):
             breakdown = _score_batter(
                 player_id, market_key, selection, point, edge,
-                park, weather_data, game_info, home_team, away_team, season)
+                park, weather_data, game_info, home_team, away_team, season,
+                player_team=player_team)
         else:
             # Minimal score for unsupported markets
             breakdown = [{"signal": "edge", "raw": _edge_signal(edge),

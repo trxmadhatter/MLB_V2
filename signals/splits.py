@@ -10,12 +10,12 @@ _TIMEOUT = 10
 _cache: dict[tuple, dict] = {}
 
 NEUTRAL_SPLITS = {
-    "k_pct_vs_lhh": None, "k_pct_vs_rhh": None,
-    "h9_vs_lhh": None,    "h9_vs_rhh": None,
-    "era_home": None,      "era_away": None,
-    "slg_vs_lhp": None,   "slg_vs_rhp": None,
-    "avg_vs_lhp": None,   "avg_vs_rhp": None,
-    "tb_home": None,       "tb_away": None,
+    "k9_vs_lhh": None, "k9_vs_rhh": None,
+    "h9_vs_lhh": None,  "h9_vs_rhh": None,
+    "era_home": None,   "era_away": None,
+    "slg_vs_lhp": None, "slg_vs_rhp": None,
+    "avg_vs_lhp": None, "avg_vs_rhp": None,
+    "avg_home": None,   "avg_away": None,
 }
 
 

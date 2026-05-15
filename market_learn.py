@@ -40,12 +40,16 @@ def compute_calibration(bt_conn: sqlite3.Connection) -> list[dict]:
         key = (r["market_key"], r["selection"], _edge_bucket(r["edge"]))
         if key not in buckets:
             buckets[key] = {"wins": 0, "losses": 0, "pushes": 0,
-                            "prices": [], "profit": 0.0}
+                            "decided_prices": [], "profit": 0.0}
         b = buckets[key]
-        if r["result"] == "WIN":    b["wins"]   += 1
-        elif r["result"] == "LOSS": b["losses"] += 1
-        else:                       b["pushes"] += 1
-        b["prices"].append(r["bovada_price"])
+        if r["result"] == "WIN":
+            b["wins"]   += 1
+            b["decided_prices"].append(r["bovada_price"])
+        elif r["result"] == "LOSS":
+            b["losses"] += 1
+            b["decided_prices"].append(r["bovada_price"])
+        else:
+            b["pushes"] += 1
         b["profit"] += r["profit_units"] or 0.0
 
     results = []
@@ -54,8 +58,7 @@ def compute_calibration(bt_conn: sqlite3.Connection) -> list[dict]:
         if decided < MIN_SAMPLE:
             continue
         win_rate = b["wins"] / decided
-        # Correct: average per-pick BEV, not BEV of avg price
-        avg_bev = sum(_breakeven(p) for p in b["prices"]) / len(b["prices"])
+        avg_bev = sum(_breakeven(p) for p in b["decided_prices"]) / len(b["decided_prices"])
         results.append({
             "market_key":        mkt,
             "selection":         sel,
