@@ -1,5 +1,9 @@
 from consensus import american_to_decimal
-from config import EDGE_RECOMMENDED, EDGE_LEAN
+from config import (
+    EDGE_RECOMMENDED, EDGE_MIN_BET, BET_WHITELIST,
+    BET_PRICE_MIN, BET_PRICE_MAX,
+    SCORE_RECOMMENDED, SCORE_LEAN,
+)
 
 
 def bovada_break_even(price: int) -> float:
@@ -16,11 +20,31 @@ def compute_ev(bovada_price: int, consensus_fair_prob: float) -> float:
     return consensus_fair_prob * decimal_odds - 1.0
 
 
-def classify(edge: float, ev: float) -> str:
-    if ev <= 0:
+def classify(edge: float, ev: float, *, market_key: str = "", selection: str = "", price: int = 0) -> str:
+    """Legacy edge-only classifier. Kept for backtest replay compatibility."""
+    if (market_key, selection) not in BET_WHITELIST:
+        return "NO_BET"
+    if not (BET_PRICE_MIN <= price <= BET_PRICE_MAX):
         return "NO_BET"
     if edge >= EDGE_RECOMMENDED:
         return "RECOMMENDED"
-    if edge >= EDGE_LEAN:
+    if edge >= EDGE_MIN_BET:
+        return "LEAN"
+    return "NO_BET"
+
+
+def classify_by_score(score: int, edge: float, market_key: str, selection: str) -> str:
+    """
+    Score-based classifier (new system).
+    Hard gates: market+direction must be whitelisted, edge must be > 0%.
+    Score determines tier.
+    """
+    if (market_key, selection) not in BET_WHITELIST:
+        return "NO_BET"
+    if edge <= 0.0:
+        return "NO_BET"
+    if score >= SCORE_RECOMMENDED:
+        return "RECOMMENDED"
+    if score >= SCORE_LEAN:
         return "LEAN"
     return "NO_BET"
