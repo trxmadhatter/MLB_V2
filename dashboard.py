@@ -93,18 +93,20 @@ def _card_class(rec: str) -> str:
     return {"RECOMMENDED": "rec-card pick-card", "LEAN": "lean-card pick-card"}.get(rec, "pick-card")
 
 
-def _stars(score) -> str:
+def _score_bar(score) -> str:
     if score is None:
         return ""
-    return "★" * int(score) + "☆" * (4 - int(score))
+    filled = int((score or 0) / 10)
+    bar = "█" * filled + "░" * (10 - filled)
+    return f"{score:>3}/100 [{bar}]"
 
 
-def _star_color(score) -> str:
+def _score_color(score) -> str:
     if score is None or score == 0:
         return "#3a5068"
-    if score >= 3:
-        return "#f1c40f"
-    if score >= 2:
+    if score >= 65:
+        return "#27ae60"
+    if score >= 45:
         return "#f39c12"
     return "#8fa8c8"
 
@@ -128,7 +130,7 @@ def _render_today(conn, today: str) -> None:
     _REC_ORDER = {"RECOMMENDED": 0, "LEAN": 1, "NO_BET": 2}
     picks = sorted(picks, key=lambda p: (
         _REC_ORDER.get(p["recommendation"], 2),
-        -(p["confidence_score"] or 0),
+        -(p["signal_score"] or 0),
         -p["edge"],
     ))
 
@@ -146,19 +148,13 @@ def _render_today(conn, today: str) -> None:
     st.markdown("---")
     col_a, col_b = st.columns([2, 1])
     show_all = col_a.checkbox("Show all evaluated lines (not just LEAN+)", value=False)
-    min_conf = col_b.selectbox(
-        "Min confidence",
-        options=[0, 1, 2, 3, 4],
-        format_func=lambda x: "All stars" if x == 0 else f"{x}+ stars",
-        index=0,
-        key="min_conf",
-        label_visibility="collapsed",
-    )
+    min_score = col_b.slider("Min signal score", 0, 90, 0, step=5, key="min_score",
+                             label_visibility="collapsed")
 
     visible = [
         p for p in picks
         if (show_all or p["recommendation"] in ("LEAN", "RECOMMENDED"))
-        and (min_conf == 0 or (p["confidence_score"] is not None and p["confidence_score"] >= min_conf))
+        and (p["signal_score"] or 0) >= min_score
     ]
 
     if not visible:
@@ -173,10 +169,14 @@ def _render_today(conn, today: str) -> None:
         mkt_esc   = _html.escape(str(mkt))
         sel_esc   = _html.escape(str(p["selection"]))
         rec_esc   = _html.escape(str(p["recommendation"]))
-        stars      = _stars(p["confidence_score"])
-        star_color = _star_color(p["confidence_score"])
-        factors    = json.loads(p["confidence_factors"] or "[]")
-        factors_title = " | ".join(factors) if factors else "No data"
+        score_val  = p["signal_score"] or 0
+        score_disp = _score_bar(score_val)
+        score_clr  = _score_color(score_val)
+        breakdown_raw = p["signal_breakdown"] or "[]"
+        try:
+            breakdown = json.loads(breakdown_raw)
+        except Exception:
+            breakdown = []
 
         st.markdown(f"""
 <div class="{card_cls}">
@@ -190,10 +190,16 @@ def _render_today(conn, today: str) -> None:
     {p['consensus_book_count']} books &nbsp;·&nbsp;
     <b>{rec_esc}</b>
   </span>
-  <span title="{_html.escape(factors_title)}"
-        style="float:right;color:{star_color};font-size:15px;cursor:help">{stars}</span>
+  <span style="float:right;color:{score_clr};font-family:monospace;font-size:13px">{score_disp}</span>
 </div>
 """, unsafe_allow_html=True)
+        if breakdown:
+            with st.expander("Signal breakdown"):
+                breakdown_text = "\n".join(
+                    f"  {b['signal']:<22} {b['pts']:>3}/{b['max']:<3} — {b['note']}"
+                    for b in breakdown
+                )
+                st.code(breakdown_text)
 
         if p["bet_placed"] == 0:
             uc, bc, sc, _ = st.columns([1.4, 0.9, 0.9, 4])
