@@ -75,34 +75,31 @@ def get_game_results(date_str: str) -> list[dict]:
                     norm  = normalize_name(full_name)
                     stats = pdata.get("stats", {})
 
-                    bstats = stats.get("batting", {})
-                    h  = bstats.get("hits")
-                    tb = bstats.get("totalBases")
+                    bstats  = stats.get("batting",  {})
+                    pstats  = stats.get("pitching", {})
 
-                    pstats = stats.get("pitching", {})
-                    k = pstats.get("strikeOuts")
-
-                    if h is not None:
-                        results.append({
-                            "player_name":      full_name,
-                            "player_name_norm": norm,
-                            "market_key":       "batter_hits",
-                            "stat_value":       int(h),
-                        })
-                    if tb is not None:
-                        results.append({
-                            "player_name":      full_name,
-                            "player_name_norm": norm,
-                            "market_key":       "batter_total_bases",
-                            "stat_value":       int(tb),
-                        })
-                    if k is not None:
-                        results.append({
-                            "player_name":      full_name,
-                            "player_name_norm": norm,
-                            "market_key":       "pitcher_strikeouts",
-                            "stat_value":       int(k),
-                        })
+                    _extracts = [
+                        (bstats.get("hits"),          "batter_hits"),
+                        (bstats.get("totalBases"),    "batter_total_bases"),
+                        (bstats.get("homeRuns"),      "batter_home_runs"),
+                        (bstats.get("rbi"),           "batter_rbis"),
+                        (bstats.get("runs"),          "batter_runs_scored"),
+                        (bstats.get("stolenBases"),   "batter_stolen_bases"),
+                        (bstats.get("baseOnBalls"),   "batter_walks"),
+                        (pstats.get("strikeOuts"),    "pitcher_strikeouts"),
+                        (pstats.get("hits"),          "pitcher_hits_allowed"),
+                        (pstats.get("earnedRuns"),    "pitcher_earned_runs"),
+                        (pstats.get("baseOnBalls"),   "pitcher_walks"),
+                        (pstats.get("outs"),          "pitcher_outs"),
+                    ]
+                    for val, mkt in _extracts:
+                        if val is not None:
+                            results.append({
+                                "player_name":      full_name,
+                                "player_name_norm": norm,
+                                "market_key":       mkt,
+                                "stat_value":       int(val),
+                            })
     return results
 
 

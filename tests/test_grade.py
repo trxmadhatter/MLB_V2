@@ -1,4 +1,5 @@
 import pytest
+from unittest import mock
 from grade import normalize_name, grade_outcome, calc_profit
 
 
@@ -60,3 +61,124 @@ class TestCalcProfit:
     def test_push(self):
         assert calc_profit("PUSH", -110) == 0.0
         assert calc_profit("PUSH", 150)  == 0.0
+
+
+class TestGetGameResultsExtractors:
+    def _make_resp(self, data):
+        m = mock.Mock()
+        m.raise_for_status = mock.Mock()
+        m.json.return_value = data
+        return m
+
+    def _schedule(self):
+        return {
+            "dates": [{
+                "games": [{
+                    "gamePk": 999,
+                    "status": {"abstractGameState": "Final"},
+                }]
+            }]
+        }
+
+    def _boxscore(self, batting=None, pitching=None, name="Test Player"):
+        return {
+            "teams": {
+                "home": {
+                    "players": {
+                        "ID1": {
+                            "person": {"fullName": name},
+                            "stats": {
+                                "batting":  batting  or {},
+                                "pitching": pitching or {},
+                            },
+                        }
+                    }
+                },
+                "away": {"players": {}},
+            }
+        }
+
+    def test_pitcher_hits_allowed_extracted(self):
+        with mock.patch("requests.get") as mg:
+            mg.side_effect = [
+                self._make_resp(self._schedule()),
+                self._make_resp(self._boxscore(pitching={"hits": 6})),
+            ]
+            from grade import get_game_results
+            results = get_game_results("2026-05-01")
+        found = [r for r in results if r["market_key"] == "pitcher_hits_allowed"]
+        assert len(found) == 1
+        assert found[0]["stat_value"] == 6
+
+    def test_pitcher_earned_runs_extracted(self):
+        with mock.patch("requests.get") as mg:
+            mg.side_effect = [
+                self._make_resp(self._schedule()),
+                self._make_resp(self._boxscore(pitching={"earnedRuns": 3})),
+            ]
+            from grade import get_game_results
+            results = get_game_results("2026-05-01")
+        found = [r for r in results if r["market_key"] == "pitcher_earned_runs"]
+        assert len(found) == 1
+        assert found[0]["stat_value"] == 3
+
+    def test_batter_home_runs_extracted(self):
+        with mock.patch("requests.get") as mg:
+            mg.side_effect = [
+                self._make_resp(self._schedule()),
+                self._make_resp(self._boxscore(batting={"homeRuns": 2})),
+            ]
+            from grade import get_game_results
+            results = get_game_results("2026-05-01")
+        found = [r for r in results if r["market_key"] == "batter_home_runs"]
+        assert len(found) == 1
+        assert found[0]["stat_value"] == 2
+
+    def test_zero_value_still_extracted(self):
+        """0 home runs is a valid outcome — must be graded, not skipped."""
+        with mock.patch("requests.get") as mg:
+            mg.side_effect = [
+                self._make_resp(self._schedule()),
+                self._make_resp(self._boxscore(batting={"homeRuns": 0})),
+            ]
+            from grade import get_game_results
+            results = get_game_results("2026-05-01")
+        found = [r for r in results if r["market_key"] == "batter_home_runs"]
+        assert len(found) == 1
+        assert found[0]["stat_value"] == 0
+
+    def test_all_12_markets_extracted_in_one_call(self):
+        batting  = {"hits": 2, "totalBases": 5, "homeRuns": 1, "rbi": 2,
+                    "runs": 1, "stolenBases": 1, "baseOnBalls": 1}
+        pitching = {"strikeOuts": 7, "hits": 4, "earnedRuns": 2,
+                    "baseOnBalls": 2, "outs": 21}
+        with mock.patch("requests.get") as mg:
+            mg.side_effect = [
+                self._make_resp(self._schedule()),
+                self._make_resp(self._boxscore(batting=batting, pitching=pitching)),
+            ]
+            from grade import get_game_results
+            results = get_game_results("2026-05-01")
+        found = {r["market_key"] for r in results}
+        expected = {
+            "batter_hits", "batter_total_bases", "batter_home_runs", "batter_rbis",
+            "batter_runs_scored", "batter_stolen_bases", "batter_walks",
+            "pitcher_strikeouts", "pitcher_hits_allowed", "pitcher_earned_runs",
+            "pitcher_walks", "pitcher_outs",
+        }
+        assert expected == found
+
+    def test_skips_non_final_games(self):
+        schedule = {
+            "dates": [{
+                "games": [{
+                    "gamePk": 999,
+                    "status": {"abstractGameState": "Live"},
+                }]
+            }]
+        }
+        with mock.patch("requests.get") as mg:
+            mg.side_effect = [self._make_resp(schedule)]
+            from grade import get_game_results
+            results = get_game_results("2026-05-01")
+        assert results == []

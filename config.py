@@ -11,8 +11,26 @@ ODDS_FORMAT = "american"
 # V1 player prop markets only
 V1_MARKETS = [
     "pitcher_strikeouts",
+    "pitcher_hits_allowed",
+    "pitcher_earned_runs",
     "batter_hits",
     "batter_total_bases",
+]
+
+# All player prop markets to test and backtest
+ALL_PROP_MARKETS = [
+    "pitcher_strikeouts",
+    "pitcher_hits_allowed",
+    "pitcher_earned_runs",
+    "pitcher_walks",
+    "pitcher_outs",
+    "batter_hits",
+    "batter_total_bases",
+    "batter_home_runs",
+    "batter_rbis",
+    "batter_runs_scored",
+    "batter_stolen_bases",
+    "batter_walks",
 ]
 
 # Bovada is the target book — isolated from consensus
