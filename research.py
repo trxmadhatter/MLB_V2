@@ -1,529 +1,259 @@
-#!/usr/bin/env python3
 """
-MLB V2 Market Research — find which pick characteristics predict profitability.
+Market segment analysis on existing backtest data.
+Slices backtest_picks across edge, book count, line value, price, and
+market+direction to find which filters produce positive ROI.
 
-Queries backtest.db directly with per-pick break-even calculations.
-No API calls. Read-only.
-
-Usage:
-    python research.py
-    python research.py --section edge        # one section only
-    python research.py --min-picks 10        # lower sample threshold
+Usage: python research.py
 """
-import argparse
 import sqlite3
 from pathlib import Path
 
-BACKTEST_DB = Path(__file__).parent / "data" / "backtest.db"
-DEFAULT_MIN_PICKS = 15
-
-SECTION_NAMES = ["overview", "edge", "price", "market", "books", "lines", "compound"]
+DB = Path(__file__).parent / "data" / "backtest.db"
+MIN_PICKS = 15
 
 
-# ── helpers ───────────────────────────────────────────────────────────────────
-
-def bev_expr(col: str = "bovada_price") -> str:
-    """SQL expression for per-pick break-even probability."""
-    return (
-        f"CASE WHEN {col} > 0 "
-        f"THEN 100.0 / ({col} + 100) "
-        f"ELSE ABS({col}) * 1.0 / (ABS({col}) + 100) END"
-    )
+def _edge_bucket(edge: float) -> str:
+    if edge >= 0.08: return "8%+"
+    if edge >= 0.06: return "6-8%"
+    if edge >= 0.04: return "4-6%"
+    if edge >= 0.02: return "2-4%"
+    if edge >= 0.01: return "1-2%"
+    return "<1%"
 
 
-def header(title: str) -> None:
-    print(f"\n{'='*68}")
+def _price_bucket(price: int) -> str:
+    if price >= 100:   return "+100 or better"
+    if price >= -105:  return "-105 to -101"
+    if price >= -115:  return "-115 to -106"
+    if price >= -130:  return "-130 to -116"
+    if price >= -150:  return "-150 to -131"
+    return "worse than -150"
+
+
+def _line_bucket(point: float) -> str:
+    return str(round(point * 2) / 2)
+
+
+def _seg(rows: list[sqlite3.Row], label: str, key_fn) -> list[dict]:
+    from collections import defaultdict
+    buckets: dict = defaultdict(lambda: {"wins": 0, "losses": 0, "pushes": 0,
+                                          "profit": 0.0, "bevs": []})
+    for r in rows:
+        k = key_fn(r)
+        b = buckets[k]
+        res = r["result"]
+        if res == "WIN":
+            b["wins"] += 1
+        elif res == "LOSS":
+            b["losses"] += 1
+        elif res == "PUSH":
+            b["pushes"] += 1
+        else:
+            continue
+        b["profit"] += r["profit_units"] or 0.0
+        b["bevs"].append(r["bovada_fair_prob"] or 0.53)
+
+    results = []
+    for k, b in buckets.items():
+        decided = b["wins"] + b["losses"]
+        if decided < MIN_PICKS:
+            continue
+        avg_bev = sum(b["bevs"]) / len(b["bevs"]) if b["bevs"] else 0.53
+        win_rate = b["wins"] / decided
+        results.append({
+            "segment":     f"{label}={k}",
+            "n":           decided,
+            "wins":        b["wins"],
+            "losses":      b["losses"],
+            "pushes":      b["pushes"],
+            "win_rate":    round(win_rate, 4),
+            "bev":         round(avg_bev, 4),
+            "edge_vs_bev": round(win_rate - avg_bev, 4),
+            "net_units":   round(b["profit"], 2),
+        })
+    results.sort(key=lambda x: x["net_units"], reverse=True)
+    return results
+
+
+def _print_table(title: str, rows: list[dict], min_n: int = MIN_PICKS) -> None:
+    rows = [r for r in rows if r["n"] >= min_n]
+    print(f"\n{'='*76}")
     print(f"  {title}")
-    print(f"{'='*68}")
+    print(f"{'='*76}")
+    if not rows:
+        print("  (no segments with enough data)")
+        return
+    print(f"  {'Segment':<38} {'N':>5} {'W-L':>10} {'WR%':>6} {'BEV%':>6} {'Edge':>7} {'Net':>9}")
+    print("  " + "-" * 74)
+    for r in rows:
+        wl = f"{r['wins']}-{r['losses']}"
+        flag = " *" if r["edge_vs_bev"] > 0 else ""
+        print(f"  {r['segment']:<38} {r['n']:>5} {wl:>10} "
+              f"{r['win_rate']*100:>5.1f}% {r['bev']*100:>5.1f}% "
+              f"{r['edge_vs_bev']*100:>+6.1f}% {r['net_units']:>+8.2f}u{flag}")
 
-
-def print_table(rows: list, cols: list[tuple[str, int, str]], min_n: int = 0) -> None:
-    """
-    cols: list of (label, width, format_spec)
-    Skips rows where first numeric column < min_n.
-    """
-    header_row = "  " + "  ".join(f"{c[0]:{c[1]}}" for c in cols)
-    print(header_row)
-    print("  " + "-" * (sum(c[1] for c in cols) + 2 * len(cols)))
-    printed = 0
-    for row in rows:
-        vals = []
-        for i, (_, width, fmt) in enumerate(cols):
-            v = row[i]
-            if v is None:
-                vals.append(f"{'--':>{width}}")
-            else:
-                try:
-                    vals.append(f"{v:{fmt}>{width}}" if fmt else f"{str(v):<{width}}")
-                except (TypeError, ValueError):
-                    vals.append(f"{str(v):<{width}}")
-        print("  " + "  ".join(vals))
-        printed += 1
-    if printed == 0:
-        print("  (no rows meeting threshold)")
-
-
-# ── queries ───────────────────────────────────────────────────────────────────
-
-def section_overview(conn: sqlite3.Connection) -> None:
-    header("OVERVIEW — ALL GRADED PICKS BY TIER")
-    bev = bev_expr()
-    rows = conn.execute(f"""
-        SELECT
-            recommendation,
-            COUNT(*) AS n,
-            SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END) AS wins,
-            SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END) AS losses,
-            ROUND(100.0 * SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END)
-                / NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS') THEN 1 ELSE 0 END), 0), 1) AS win_pct,
-            ROUND(AVG({bev}) * 100, 1) AS avg_bev_pct,
-            ROUND(SUM(profit_units), 2) AS net_units,
-            ROUND(100.0 * SUM(profit_units)
-                / NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS','PUSH') THEN 1 ELSE 0 END), 0), 1) AS roi_pct,
-            SUM(CASE WHEN profit_units > ({bev} - 0.5) THEN 1 ELSE 0 END) AS above_bev_count
-        FROM backtest_picks
-        WHERE result IN ('WIN','LOSS','PUSH')
-        GROUP BY recommendation
-        ORDER BY CASE recommendation WHEN 'RECOMMENDED' THEN 0 WHEN 'LEAN' THEN 1 ELSE 2 END
-    """).fetchall()
-    cols = [
-        ("TIER", 14, ""),
-        ("N", 5, ".0f"),
-        ("W", 5, ".0f"),
-        ("L", 5, ".0f"),
-        ("WIN%", 6, ".1f"),
-        ("BEV%", 6, ".1f"),
-        ("NET_U", 8, ".2f"),
-        ("ROI%", 7, ".1f"),
-    ]
-    print_table([[r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7]] for r in rows], cols)
-
-    print("\n  NOTE: BEV% = avg break-even prob needed (per-pick, not avg-price bucket)")
-    print("        If WIN% < BEV% the market is structurally losing.\n")
-
-
-def section_edge(conn: sqlite3.Connection, min_n: int) -> None:
-    header("EDGE BUCKET ANALYSIS — does more edge predict more wins?")
-    bev = bev_expr()
-    rows = conn.execute(f"""
-        SELECT
-            CASE
-                WHEN edge < 0     THEN '< 0%  '
-                WHEN edge < 0.01  THEN '0-1%  '
-                WHEN edge < 0.02  THEN '1-2%  '
-                WHEN edge < 0.03  THEN '2-3%  '
-                WHEN edge < 0.04  THEN '3-4%  '
-                WHEN edge < 0.05  THEN '4-5%  '
-                WHEN edge < 0.06  THEN '5-6%  '
-                WHEN edge < 0.08  THEN '6-8%  '
-                ELSE              '8%+   '
-            END AS bucket,
-            COUNT(*) AS n,
-            ROUND(AVG(edge)*100,1) AS avg_edge_pct,
-            SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END) AS wins,
-            SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END) AS losses,
-            ROUND(100.0 * SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END)
-                / NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS') THEN 1 ELSE 0 END),0), 1) AS win_pct,
-            ROUND(AVG({bev})*100,1) AS avg_bev_pct,
-            ROUND(SUM(profit_units),2) AS net_units,
-            ROUND(100.0 * SUM(profit_units)
-                / NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS','PUSH') THEN 1 ELSE 0 END),0), 1) AS roi_pct
-        FROM backtest_picks
-        WHERE result IN ('WIN','LOSS','PUSH')
-        GROUP BY bucket
-        HAVING n >= {min_n}
-        ORDER BY MIN(edge)
-    """).fetchall()
-    cols = [
-        ("EDGE_BUCKET", 10, ""),
-        ("N", 5, ".0f"),
-        ("AVG_EDGE%", 9, ".1f"),
-        ("W", 5, ".0f"),
-        ("L", 5, ".0f"),
-        ("WIN%", 6, ".1f"),
-        ("BEV%", 6, ".1f"),
-        ("NET_U", 8, ".2f"),
-        ("ROI%", 7, ".1f"),
-    ]
-    print_table([[r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8]] for r in rows], cols, min_n)
-    print("\n  KEY: If WIN% doesn't rise with edge, the consensus edge signal is noise.\n")
-
-
-def section_price(conn: sqlite3.Connection, min_n: int) -> None:
-    header("PRICE RANGE ANALYSIS — which odds ranges are profitable?")
-    bev = bev_expr()
-    rows = conn.execute(f"""
-        SELECT
-            CASE
-                WHEN bovada_price <= -200 THEN '<=-200 heavy_fav '
-                WHEN bovada_price <= -150 THEN '-150 to -200    '
-                WHEN bovada_price <= -120 THEN '-120 to -150    '
-                WHEN bovada_price <= -101 THEN '-101 to -120    '
-                WHEN bovada_price < 0     THEN '-100 to -1      '
-                WHEN bovada_price <= 100  THEN 'even to +100    '
-                WHEN bovada_price <= 150  THEN '+101 to +150    '
-                ELSE                          '+151 and up     '
-            END AS price_range,
-            COUNT(*) AS n,
-            ROUND(AVG(bovada_price),0) AS avg_price,
-            ROUND(AVG({bev})*100,1) AS avg_bev_pct,
-            SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END) AS wins,
-            SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END) AS losses,
-            ROUND(100.0 * SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END)
-                / NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS') THEN 1 ELSE 0 END),0), 1) AS win_pct,
-            ROUND(SUM(profit_units),2) AS net_units,
-            ROUND(100.0 * SUM(profit_units)
-                / NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS','PUSH') THEN 1 ELSE 0 END),0), 1) AS roi_pct
-        FROM backtest_picks
-        WHERE result IN ('WIN','LOSS','PUSH')
-        GROUP BY price_range
-        HAVING n >= {min_n}
-        ORDER BY avg_price
-    """).fetchall()
-    cols = [
-        ("PRICE_RANGE", 18, ""),
-        ("N", 5, ".0f"),
-        ("AVG_PRC", 7, ".0f"),
-        ("BEV%", 6, ".1f"),
-        ("W", 5, ".0f"),
-        ("L", 5, ".0f"),
-        ("WIN%", 6, ".1f"),
-        ("NET_U", 8, ".2f"),
-        ("ROI%", 7, ".1f"),
-    ]
-    print_table([[r[0],r[1],r[2],r[3],r[4],r[5],r[6],r[7],r[8]] for r in rows], cols, min_n)
-
-
-def section_market(conn: sqlite3.Connection, min_n: int) -> None:
-    header("MARKET + SELECTION — which combos beat break-even? (ALL tiers)")
-    bev = bev_expr()
-    rows = conn.execute(f"""
-        SELECT
-            market_key,
-            selection,
-            COUNT(*) AS n,
-            ROUND(AVG({bev})*100,1) AS avg_bev_pct,
-            SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END) AS wins,
-            SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END) AS losses,
-            ROUND(100.0 * SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END)
-                / NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS') THEN 1 ELSE 0 END),0), 1) AS win_pct,
-            ROUND(SUM(profit_units),2) AS net_units,
-            ROUND(100.0 * SUM(profit_units)
-                / NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS','PUSH') THEN 1 ELSE 0 END),0), 1) AS roi_pct,
-            CASE WHEN SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END) * 1.0
-                      / NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS') THEN 1 ELSE 0 END),0)
-                      > AVG({bev})
-                 THEN 'YES' ELSE 'NO' END AS beats_bev
-        FROM backtest_picks
-        WHERE result IN ('WIN','LOSS','PUSH')
-        GROUP BY market_key, selection
-        HAVING n >= {min_n}
-        ORDER BY roi_pct DESC
-    """).fetchall()
-    cols = [
-        ("MARKET", 22, ""),
-        ("SEL", 6, ""),
-        ("N", 5, ".0f"),
-        ("BEV%", 6, ".1f"),
-        ("W", 5, ".0f"),
-        ("L", 5, ".0f"),
-        ("WIN%", 6, ".1f"),
-        ("NET_U", 8, ".2f"),
-        ("ROI%", 7, ".1f"),
-        ("BEATS_BEV", 9, ""),
-    ]
-    print_table([[r[0],r[1],r[2],r[3],r[4],r[5],r[6],r[7],r[8],r[9]] for r in rows], cols, min_n)
-
-
-def section_books(conn: sqlite3.Connection, min_n: int) -> None:
-    header("CONSENSUS BOOK COUNT — does more books = better signal?")
-    bev = bev_expr()
-    rows = conn.execute(f"""
-        SELECT
-            CASE
-                WHEN consensus_book_count = 3 THEN '3 books  '
-                WHEN consensus_book_count = 4 THEN '4 books  '
-                WHEN consensus_book_count = 5 THEN '5 books  '
-                WHEN consensus_book_count = 6 THEN '6 books  '
-                ELSE                               '7+ books '
-            END AS book_bucket,
-            consensus_book_count,
-            COUNT(*) AS n,
-            ROUND(AVG({bev})*100,1) AS avg_bev_pct,
-            SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END) AS wins,
-            SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END) AS losses,
-            ROUND(100.0 * SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END)
-                / NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS') THEN 1 ELSE 0 END),0), 1) AS win_pct,
-            ROUND(SUM(profit_units),2) AS net_units,
-            ROUND(100.0 * SUM(profit_units)
-                / NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS','PUSH') THEN 1 ELSE 0 END),0), 1) AS roi_pct
-        FROM backtest_picks
-        WHERE result IN ('WIN','LOSS','PUSH')
-        GROUP BY book_bucket
-        HAVING n >= {min_n}
-        ORDER BY consensus_book_count
-    """).fetchall()
-    cols = [
-        ("BOOKS", 10, ""),
-        ("EXACT_N", 7, ".0f"),
-        ("PICKS", 5, ".0f"),
-        ("BEV%", 6, ".1f"),
-        ("W", 5, ".0f"),
-        ("L", 5, ".0f"),
-        ("WIN%", 6, ".1f"),
-        ("NET_U", 8, ".2f"),
-        ("ROI%", 7, ".1f"),
-    ]
-    print_table([[r[0],r[1],r[2],r[3],r[4],r[5],r[6],r[7],r[8]] for r in rows], cols, min_n)
-
-
-def section_lines(conn: sqlite3.Connection, min_n: int) -> None:
-    header("LINE VALUE BY MARKET — which specific lines win?")
-    bev = bev_expr()
-
-    markets = conn.execute("""
-        SELECT DISTINCT market_key
-        FROM backtest_picks
-        WHERE result IN ('WIN','LOSS','PUSH')
-        GROUP BY market_key
-        HAVING COUNT(*) >= 50
-        ORDER BY market_key
-    """).fetchall()
-
-    cols = [
-        ("POINT", 7, ".1f"),
-        ("N", 5, ".0f"),
-        ("BEV%", 6, ".1f"),
-        ("W", 5, ".0f"),
-        ("L", 5, ".0f"),
-        ("WIN%", 6, ".1f"),
-        ("NET_U", 8, ".2f"),
-        ("ROI%", 7, ".1f"),
-    ]
-
-    for (mkt,) in markets:
-        rows = conn.execute(f"""
-            SELECT
-                point,
-                COUNT(*) AS n,
-                ROUND(AVG({bev})*100,1) AS avg_bev_pct,
-                SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END) AS wins,
-                SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END) AS losses,
-                ROUND(100.0 * SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END)
-                    / NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS') THEN 1 ELSE 0 END),0), 1) AS win_pct,
-                ROUND(SUM(profit_units),2) AS net_units,
-                ROUND(100.0 * SUM(profit_units)
-                    / NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS','PUSH') THEN 1 ELSE 0 END),0), 1) AS roi_pct
-            FROM backtest_picks
-            WHERE result IN ('WIN','LOSS','PUSH')
-              AND market_key = ?
-            GROUP BY point
-            HAVING n >= {min_n}
-            ORDER BY net_units DESC
-        """, (mkt,)).fetchall()
-
-        if rows:
-            print(f"\n  {mkt}:")
-            print_table([[r[0],r[1],r[2],r[3],r[4],r[5],r[6],r[7]] for r in rows], cols, min_n)
-
-
-def section_compound(conn: sqlite3.Connection, min_n: int) -> None:
-    header("COMPOUND FILTERS — market + selection + edge + books + price")
-
-    bev = bev_expr()
-    rows = conn.execute(f"""
-        SELECT
-            market_key,
-            selection,
-            CASE
-                WHEN edge < 0.02 THEN '<2%'
-                WHEN edge < 0.04 THEN '2-4%'
-                WHEN edge < 0.06 THEN '4-6%'
-                ELSE '6%+'
-            END AS edge_bucket,
-            CASE
-                WHEN consensus_book_count >= 6 THEN '6+'
-                WHEN consensus_book_count >= 5 THEN '5'
-                WHEN consensus_book_count >= 4 THEN '4'
-                ELSE '3'
-            END AS book_tier,
-            CASE
-                WHEN bovada_price <= -150 THEN 'heavy_fav'
-                WHEN bovada_price <= -101 THEN 'fav'
-                WHEN bovada_price < 0     THEN 'slight_fav'
-                ELSE 'dog'
-            END AS price_tier,
-            COUNT(*) AS n,
-            ROUND(AVG({bev})*100,1) AS avg_bev_pct,
-            SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END) AS wins,
-            SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END) AS losses,
-            ROUND(100.0 * SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END)
-                / NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS') THEN 1 ELSE 0 END),0), 1) AS win_pct,
-            ROUND(SUM(profit_units),2) AS net_units,
-            ROUND(100.0 * SUM(profit_units)
-                / NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS','PUSH') THEN 1 ELSE 0 END),0), 1) AS roi_pct
-        FROM backtest_picks
-        WHERE result IN ('WIN','LOSS','PUSH')
-        GROUP BY market_key, selection, edge_bucket, book_tier, price_tier
-        HAVING n >= {min_n}
-          AND roi_pct > 0
-        ORDER BY roi_pct DESC
-        LIMIT 30
-    """).fetchall()
-
-    print("  Top 30 profitable compound segments (ROI% > 0, min picks threshold):\n")
-    cols = [
-        ("MARKET", 22, ""),
-        ("SEL", 6, ""),
-        ("EDGE", 5, ""),
-        ("BKS", 4, ""),
-        ("PRC_TIER", 10, ""),
-        ("N", 5, ".0f"),
-        ("BEV%", 6, ".1f"),
-        ("W", 5, ".0f"),
-        ("L", 5, ".0f"),
-        ("WIN%", 6, ".1f"),
-        ("NET_U", 8, ".2f"),
-        ("ROI%", 7, ".1f"),
-    ]
-    print_table([[r[0],r[1],r[2],r[3],r[4],r[5],r[6],r[7],r[8],r[9],r[10],r[11]] for r in rows], cols, min_n)
-
-    print("\n  WORST 10 losing compound segments:\n")
-    worst = conn.execute(f"""
-        SELECT
-            market_key,
-            selection,
-            CASE
-                WHEN edge < 0.02 THEN '<2%'
-                WHEN edge < 0.04 THEN '2-4%'
-                WHEN edge < 0.06 THEN '4-6%'
-                ELSE '6%+'
-            END AS edge_bucket,
-            CASE
-                WHEN consensus_book_count >= 6 THEN '6+'
-                WHEN consensus_book_count >= 5 THEN '5'
-                WHEN consensus_book_count >= 4 THEN '4'
-                ELSE '3'
-            END AS book_tier,
-            CASE
-                WHEN bovada_price <= -150 THEN 'heavy_fav'
-                WHEN bovada_price <= -101 THEN 'fav'
-                WHEN bovada_price < 0     THEN 'slight_fav'
-                ELSE 'dog'
-            END AS price_tier,
-            COUNT(*) AS n,
-            ROUND(AVG({bev})*100,1) AS avg_bev_pct,
-            SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END) AS wins,
-            SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END) AS losses,
-            ROUND(100.0 * SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END)
-                / NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS') THEN 1 ELSE 0 END),0), 1) AS win_pct,
-            ROUND(SUM(profit_units),2) AS net_units,
-            ROUND(100.0 * SUM(profit_units)
-                / NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS','PUSH') THEN 1 ELSE 0 END),0), 1) AS roi_pct
-        FROM backtest_picks
-        WHERE result IN ('WIN','LOSS','PUSH')
-        GROUP BY market_key, selection, edge_bucket, book_tier, price_tier
-        HAVING n >= {min_n}
-        ORDER BY roi_pct ASC
-        LIMIT 10
-    """).fetchall()
-    print_table([[r[0],r[1],r[2],r[3],r[4],r[5],r[6],r[7],r[8],r[9],r[10],r[11]] for r in worst], cols, min_n)
-
-
-def section_bev_bug(conn: sqlite3.Connection) -> None:
-    """Show the calibration bug: avg-price BEV vs per-pick BEV comparison."""
-    header("CALIBRATION BUG CHECK — avg-price BEV vs correct per-pick BEV")
-    bev = bev_expr()
-    rows = conn.execute(f"""
-        SELECT
-            market_key,
-            selection,
-            COUNT(*) AS n,
-            ROUND(AVG(bovada_price),0) AS avg_price,
-            ROUND(AVG({bev})*100,2) AS per_pick_bev_pct,
-            -- what market_learn.py computes (wrong):
-            ROUND(
-                CASE WHEN ROUND(AVG(bovada_price)) > 0
-                     THEN 100.0 / (ROUND(AVG(bovada_price)) + 100)
-                     ELSE ABS(ROUND(AVG(bovada_price))) * 1.0 / (ABS(ROUND(AVG(bovada_price))) + 100)
-                END * 100, 2
-            ) AS avg_price_bev_pct,
-            ROUND(100.0 * SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END)
-                / NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS') THEN 1 ELSE 0 END),0), 2) AS win_pct,
-            ROUND(SUM(profit_units),2) AS net_units
-        FROM backtest_picks
-        WHERE result IN ('WIN','LOSS','PUSH')
-        GROUP BY market_key, selection
-        HAVING n >= 20
-        ORDER BY ABS(per_pick_bev_pct - avg_price_bev_pct) DESC
-    """).fetchall()
-
-    cols = [
-        ("MARKET", 22, ""),
-        ("SEL", 6, ""),
-        ("N", 5, ".0f"),
-        ("AVG_PRC", 7, ".0f"),
-        ("PER_PICK_BEV%", 13, ".2f"),
-        ("AVG_PRC_BEV%", 12, ".2f"),
-        ("WIN%", 7, ".2f"),
-        ("NET_U", 8, ".2f"),
-    ]
-    print_table([[r[0],r[1],r[2],r[3],r[4],r[5],r[6],r[7]] for r in rows], cols)
-    print("\n  PER_PICK_BEV% is correct. AVG_PRC_BEV% is what market_learn.py stores.")
-    print("  Large differences = miscategorized as profitable/unprofitable in the JSON.\n")
-
-
-# ── main ─────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="MLB V2 Market Research")
-    parser.add_argument("--section", choices=SECTION_NAMES + ["bug"], default=None,
-                        help="Run only this section (default: all)")
-    parser.add_argument("--min-picks", type=int, default=DEFAULT_MIN_PICKS,
-                        help=f"Minimum picks per segment (default: {DEFAULT_MIN_PICKS})")
-    args = parser.parse_args()
-
-    if not BACKTEST_DB.exists():
-        print(f"ERROR: backtest.db not found at {BACKTEST_DB}")
-        print("Run 'python backtest.py --report-only' first to confirm the path.")
-        return
-
-    conn = sqlite3.connect(BACKTEST_DB)
+    conn = sqlite3.connect(DB)
     conn.row_factory = sqlite3.Row
 
-    total = conn.execute(
-        "SELECT COUNT(*) FROM backtest_picks WHERE result IN ('WIN','LOSS','PUSH')"
-    ).fetchone()[0]
-    dates = conn.execute(
-        "SELECT MIN(pick_date), MAX(pick_date) FROM backtest_picks WHERE result != 'PENDING'"
-    ).fetchone()
+    all_rows = conn.execute("""
+        SELECT * FROM backtest_picks WHERE result IN ('WIN','LOSS','PUSH')
+    """).fetchall()
+    print(f"\nLoaded {len(all_rows)} graded picks  |  DB: {DB}")
 
-    print(f"\n  MLB V2 Research — backtest.db")
-    print(f"  Graded picks: {total:,}   |   Date range: {dates[0]} to {dates[1]}")
-    print(f"  Min segment size: {args.min_picks}")
+    # 1. Edge bucket — does edge predict wins?
+    _print_table(
+        "1. BY EDGE BUCKET (all markets)",
+        _seg(all_rows, "edge", lambda r: _edge_bucket(r["edge"]))
+    )
 
-    s = args.section
-    run_all = s is None
+    # 2. Recommendation tier
+    _print_table(
+        "2. BY RECOMMENDATION TIER",
+        _seg(all_rows, "tier", lambda r: r["recommendation"])
+    )
 
-    if run_all or s == "bug":
-        section_bev_bug(conn)
-    if run_all or s == "overview":
-        section_overview(conn)
-    if run_all or s == "edge":
-        section_edge(conn, args.min_picks)
-    if run_all or s == "price":
-        section_price(conn, args.min_picks)
-    if run_all or s == "market":
-        section_market(conn, args.min_picks)
-    if run_all or s == "books":
-        section_books(conn, args.min_picks)
-    if run_all or s == "lines":
-        section_lines(conn, args.min_picks)
-    if run_all or s == "compound":
-        section_compound(conn, args.min_picks)
+    # 3. Book count — more books = more reliable consensus?
+    _print_table(
+        "3. BY CONSENSUS BOOK COUNT",
+        _seg(all_rows, "books", lambda r: str(r["consensus_book_count"]))
+    )
 
-    conn.close()
-    print("\n  Done.\n")
+    # 4. Price range
+    _print_table(
+        "4. BY BOVADA PRICE RANGE",
+        _seg(all_rows, "price", lambda r: _price_bucket(r["bovada_price"]))
+    )
+
+    # 5. Market + direction
+    _print_table(
+        "5. BY MARKET + DIRECTION",
+        _seg(all_rows, "mkt", lambda r: f"{r['market_key']} {r['selection']}")
+    )
+
+    # Whitelist only
+    WHITELIST = {("pitcher_outs", "Over"), ("batter_total_bases", "Under"),
+                 ("pitcher_hits_allowed", "Under")}
+    wl_rows = [r for r in all_rows
+               if (r["market_key"], r["selection"]) in WHITELIST]
+
+    # 6. Whitelist by edge bucket
+    _print_table(
+        "6. WHITELIST — BY EDGE BUCKET",
+        _seg(wl_rows, "seg",
+             lambda r: f"{r['market_key']} {r['selection']} | {_edge_bucket(r['edge'])}")
+    )
+
+    # 7. Whitelist by line value
+    _print_table(
+        "7. WHITELIST — BY LINE VALUE",
+        _seg(wl_rows, "seg",
+             lambda r: f"{r['market_key']} {r['selection']} @ {_line_bucket(r['point'])}")
+    )
+
+    # 8. Whitelist by book count
+    _print_table(
+        "8. WHITELIST — BY BOOK COUNT",
+        _seg(wl_rows, "seg",
+             lambda r: f"{r['market_key']} {r['selection']} | {r['consensus_book_count']}bk")
+    )
+
+    # 9. Whitelist by price range
+    _print_table(
+        "9. WHITELIST — BY PRICE RANGE",
+        _seg(wl_rows, "seg",
+             lambda r: f"{r['market_key']} {r['selection']} | {_price_bucket(r['bovada_price'])}")
+    )
+
+    # 10. Compound: market + edge + books
+    _print_table(
+        "10. COMPOUND: market + edge + book count",
+        _seg(wl_rows, "seg",
+             lambda r: (f"{r['market_key'][:8]} {r['selection'][:1]}"
+                        f" | {_edge_bucket(r['edge'])} | {r['consensus_book_count']}bk")),
+        min_n=20,
+    )
+
+    # 11. All market+edge combos, any market
+    all_mkt_edge = _seg(
+        all_rows, "seg",
+        lambda r: f"{r['market_key']} {r['selection']} | {_edge_bucket(r['edge'])}"
+    )
+    profitable = sorted(
+        [s for s in all_mkt_edge if s["net_units"] > 0],
+        key=lambda x: x["net_units"], reverse=True
+    )
+    _print_table("11. ALL PROFITABLE market+edge SEGMENTS (net > 0)", profitable)
+
+    # Summary: best filters
+    print(f"\n{'='*76}")
+    print("  SUMMARY — positive edge_vs_bev AND n >= 20")
+    print(f"{'='*76}")
+    candidates = sorted(
+        [s for s in all_mkt_edge if s["edge_vs_bev"] > 0 and s["n"] >= 20],
+        key=lambda x: x["edge_vs_bev"], reverse=True
+    )
+    for s in candidates:
+        print(f"  {s['segment']:<55}  WR={s['win_rate']*100:.1f}%  net={s['net_units']:+.2f}u  n={s['n']}")
+
+    # ── NEW FILTER VALIDATION ────────────────────────────────────────────────
+    # Simulate new whitelist rules on backtest data and compare old vs new
+    NEW_WHITELIST = {
+        ("pitcher_outs",         "Over"),
+        ("batter_total_bases",   "Under"),
+        ("pitcher_hits_allowed", "Under"),
+        ("pitcher_strikeouts",   "Under"),
+    }
+    MARKET_EDGE_MIN = {("pitcher_strikeouts", "Under"): 0.08}
+    MARKET_EXCLUDE_PLUS = {("pitcher_outs", "Over")}
+
+    def new_filter(r) -> bool:
+        mkt = (r["market_key"], r["selection"])
+        if mkt not in NEW_WHITELIST:
+            return False
+        edge = r["edge"]
+        if edge <= 0:
+            return False
+        if edge < MARKET_EDGE_MIN.get(mkt, 0.0):
+            return False
+        if r["bovada_price"] >= 100 and mkt in MARKET_EXCLUDE_PLUS:
+            return False
+        return True
+
+    def old_filter(r) -> bool:
+        return (r["market_key"], r["selection"]) in {
+            ("pitcher_outs", "Over"),
+            ("batter_total_bases", "Under"),
+            ("pitcher_hits_allowed", "Under"),
+        } and r["edge"] > 0
+
+    # Split: training = first 35 days, held-out = last 12 days
+    all_dates = sorted(set(r["pick_date"] for r in all_rows))
+    split_date = all_dates[int(len(all_dates) * 0.75)]  # ~75/25 split
+
+    def summarize(rows, label):
+        wins = sum(1 for r in rows if r["result"] == "WIN")
+        losses = sum(1 for r in rows if r["result"] == "LOSS")
+        n = wins + losses
+        profit = sum(r["profit_units"] or 0 for r in rows)
+        wr = 100 * wins / n if n else 0
+        print(f"  {label:<30} n={n:4d}  {wins}W-{losses}L  WR={wr:.1f}%  net={profit:+.2f}u")
+
+    print(f"\n{'='*76}")
+    print(f"  NEW FILTER VALIDATION  (train: before {split_date} | held-out: from {split_date})")
+    print(f"{'='*76}")
+    print("  -- TRAINING SET --")
+    train = [r for r in all_rows if r["pick_date"] < split_date]
+    summarize([r for r in train if old_filter(r)], "Old whitelist")
+    summarize([r for r in train if new_filter(r)], "New whitelist")
+
+    print("  -- HELD-OUT SET --")
+    held = [r for r in all_rows if r["pick_date"] >= split_date]
+    summarize([r for r in held if old_filter(r)], "Old whitelist")
+    summarize([r for r in held if new_filter(r)], "New whitelist")
+
+    print()
 
 
 if __name__ == "__main__":

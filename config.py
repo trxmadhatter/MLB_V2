@@ -49,6 +49,17 @@ BET_WHITELIST: set[tuple[str, str]] = {
     ("pitcher_outs",         "Over"),
     ("batter_total_bases",   "Under"),
     ("pitcher_hits_allowed", "Under"),
+    ("pitcher_strikeouts",   "Under"),   # profitable only at >=8% edge per backtest
+}
+
+# Per-market minimum edge overrides (applied on top of global EDGE_MIN_BET)
+MARKET_EDGE_MIN: dict[tuple[str, str], float] = {
+    ("pitcher_strikeouts", "Under"): 0.08,
+}
+
+# Markets where +100 or better (underdog) price is unprofitable — exclude those lines
+MARKET_EXCLUDE_PLUS_ODDS: set[tuple[str, str]] = {
+    ("pitcher_outs", "Over"),   # +100 or better: 38.3% WR, -8.80u in backtest
 }
 
 # Price range filter: negative-odds favorites only (-145 to -101)

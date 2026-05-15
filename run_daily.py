@@ -126,7 +126,8 @@ def _analyze(conn, pulled_at: str, today: str,
                 game_data=game_data,
             )
 
-            rec = classify_by_score(sig_score, edge, market_key, selection)
+            rec = classify_by_score(sig_score, edge, market_key, selection,
+                                    price=bov["price"])
 
             upsert_pick(conn, {
                 **base,

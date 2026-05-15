@@ -2,6 +2,7 @@ from consensus import american_to_decimal
 from config import (
     EDGE_RECOMMENDED, EDGE_MIN_BET, BET_WHITELIST,
     BET_PRICE_MIN, BET_PRICE_MAX,
+    MARKET_EDGE_MIN, MARKET_EXCLUDE_PLUS_ODDS,
     SCORE_RECOMMENDED, SCORE_LEAN,
 )
 
@@ -33,15 +34,20 @@ def classify(edge: float, ev: float, *, market_key: str = "", selection: str = "
     return "NO_BET"
 
 
-def classify_by_score(score: int, edge: float, market_key: str, selection: str) -> str:
+def classify_by_score(score: int, edge: float, market_key: str, selection: str,
+                      price: int = 0) -> str:
     """
     Score-based classifier (new system).
-    Hard gates: market+direction must be whitelisted, edge must be > 0%.
-    Score determines tier.
+    Hard gates: whitelist, per-market min edge, price exclusions, then score tier.
     """
-    if (market_key, selection) not in BET_WHITELIST:
+    mkt = (market_key, selection)
+    if mkt not in BET_WHITELIST:
         return "NO_BET"
     if edge <= 0.0:
+        return "NO_BET"
+    if edge < MARKET_EDGE_MIN.get(mkt, 0.0):
+        return "NO_BET"
+    if price and price >= 100 and mkt in MARKET_EXCLUDE_PLUS_ODDS:
         return "NO_BET"
     if score >= SCORE_RECOMMENDED:
         return "RECOMMENDED"
