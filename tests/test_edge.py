@@ -39,24 +39,42 @@ class TestComputeEV:
         assert abs(compute_ev(100, 0.50)) < 1e-9
 
 
+GOOD_ARGS = dict(market_key="pitcher_outs", selection="Over", price=-115)
+
+
 class TestClassify:
     def test_recommended(self):
-        assert classify(0.05, 0.03) == "RECOMMENDED"
+        assert classify(0.05, 0.03, **GOOD_ARGS) == "RECOMMENDED"
 
     def test_recommended_at_exactly_4pct(self):
-        assert classify(0.04, 0.01) == "RECOMMENDED"
+        assert classify(0.04, 0.01, **GOOD_ARGS) == "RECOMMENDED"
 
     def test_lean(self):
-        assert classify(0.03, 0.01) == "LEAN"
+        assert classify(0.03, 0.01, **GOOD_ARGS) == "LEAN"
 
-    def test_lean_at_exactly_2pct(self):
-        assert classify(0.02, 0.005) == "LEAN"
+    def test_lean_at_1pct(self):
+        assert classify(0.01, 0.005, **GOOD_ARGS) == "LEAN"
 
-    def test_no_bet_low_edge(self):
-        assert classify(0.01, 0.01) == "NO_BET"
+    def test_no_bet_below_1pct(self):
+        assert classify(0.009, 0.01, **GOOD_ARGS) == "NO_BET"
 
-    def test_no_bet_negative_ev(self):
-        assert classify(0.05, -0.01) == "NO_BET"
+    def test_no_bet_wrong_market(self):
+        assert classify(0.05, 0.03, market_key="pitcher_strikeouts", selection="Over", price=-115) == "NO_BET"
 
-    def test_no_bet_zero_ev(self):
-        assert classify(0.04, 0.0) == "NO_BET"
+    def test_no_bet_wrong_direction(self):
+        assert classify(0.05, 0.03, market_key="pitcher_outs", selection="Under", price=-115) == "NO_BET"
+
+    def test_no_bet_price_too_heavy(self):
+        assert classify(0.05, 0.03, market_key="pitcher_outs", selection="Over", price=-160) == "NO_BET"
+
+    def test_no_bet_positive_odds(self):
+        assert classify(0.05, 0.03, market_key="pitcher_outs", selection="Over", price=110) == "NO_BET"
+
+    def test_no_bet_price_at_boundary_min(self):
+        assert classify(0.05, 0.03, market_key="pitcher_outs", selection="Over", price=-145) == "RECOMMENDED"
+
+    def test_no_bet_price_at_boundary_max(self):
+        assert classify(0.05, 0.03, market_key="pitcher_outs", selection="Over", price=-101) == "RECOMMENDED"
+
+    def test_ev_ignored_does_not_block_recommended(self):
+        assert classify(0.05, -0.01, **GOOD_ARGS) == "RECOMMENDED"

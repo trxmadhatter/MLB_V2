@@ -1,0 +1,89 @@
+
+==================================================
+MLB V2 Daily Run - 2026-05-15
+==================================================
+
+[1/3] Pulling props from The Odds API...
+  Fetching event list...
+  quota — used: 17960  remaining: 82040
+  Found 15 events today
+  Pulling odds: Philadelphia Phillies @ Pittsburgh Pirates
+  quota — used: 17965  remaining: 82035
+  Pulling odds: Baltimore Orioles @ Washington Nationals
+  quota — used: 17970  remaining: 82030
+  Pulling odds: Toronto Blue Jays @ Detroit Tigers
+  quota — used: 17975  remaining: 82025
+  Pulling odds: Cincinnati Reds @ Cleveland Guardians
+  quota — used: 17980  remaining: 82020
+  Pulling odds: Miami Marlins @ Tampa Bay Rays
+  quota — used: 17985  remaining: 82015
+  Pulling odds: Milwaukee Brewers @ Minnesota Twins
+  quota — used: 17990  remaining: 82010
+  Pulling odds: Boston Red Sox @ Atlanta Braves
+  quota — used: 17995  remaining: 82005
+  Pulling odds: New York Yankees @ New York Mets
+  quota — used: 18000  remaining: 82000
+  Pulling odds: Chicago Cubs @ Chicago White Sox
+  quota — used: 18005  remaining: 81995
+  Pulling odds: Texas Rangers @ Houston Astros
+  quota — used: 18010  remaining: 81990
+  Pulling odds: Kansas City Royals @ St. Louis Cardinals
+  quota — used: 18015  remaining: 81985
+  Pulling odds: Arizona Diamondbacks @ Colorado Rockies
+  quota — used: 18020  remaining: 81980
+  Pulling odds: Los Angeles Dodgers @ Los Angeles Angels
+  quota — used: 18025  remaining: 81975
+  Pulling odds: San Francisco Giants @ Athletics
+  quota — used: 18030  remaining: 81970
+  Pulling odds: San Diego Padres @ Seattle Mariners
+  quota — used: 18035  remaining: 81965
+  Stored 7466 snapshot rows  (pulled_at=2026-05-15T12:30:01Z)
+
+[2/3] Computing consensus and edge...
+  Evaluated: 292  |  Structural no-bets logged: 66
+
+[2b] Scoring confidence from MLB Stats API...
+  Confidence scored: 292 picks  (0 = player not found or API unavailable)
+  CSV: C:\Users\jesse\MLB_V2\data\picks\picks_2026-05-15.csv
+
+[3/3] Grading picks for 2026-05-14...
+  Fetching MLB results for 2026-05-14...
+  Got 1999 player stat lines
+  Graded: 54 picks
+
+--------------------------------------------------
+  Today's picks (2026-05-15):
+  NO_BET: 269
+  LEAN: 23
+
+  PLAYER                 MARKET                 S       PT   PRICE   BOV_F   CON_F    EDGE      EV  BKS  REC
+  --------------------------------------------------------------------------------------------------------------
+   Ildemaro Vargas        batter_total_bases     Under  1.5    +105   45.9%   48.9%   +3.0%   +0.3%    4  NO_BET
+ > Mauricio Dubon         batter_total_bases     Under  1.5    -145   55.4%   58.2%   +2.7%   -1.7%    4  LEAN
+   Janson Junk            pitcher_strikeouts     Under  3.5    +110   44.6%   47.3%   +2.7%   -0.7%    6  NO_BET
+   Josh Jung              batter_total_bases     Over   1.5    +140   39.1%   41.7%   +2.6%   +0.0%    4  NO_BET
+   Jack Leiter            pitcher_strikeouts     Under  5.5    +120   42.5%   44.9%   +2.4%   -1.3%    5  NO_BET
+ > Kyle Tucker            batter_total_bases     Under  1.5    -145   55.4%   57.8%   +2.4%   -2.3%    4  LEAN
+   Michael Wacha          pitcher_hits_allowed   Under  5.5    +100   46.2%   48.5%   +2.4%   -2.9%    3  NO_BET
+   Drake Baldwin          batter_total_bases     Under  1.5    -150   56.3%   58.7%   +2.3%   -2.2%    4  NO_BET
+   Sean Burke             pitcher_hits_allowed   Under  4.5    +125   41.7%   43.9%   +2.3%   -1.1%    3  NO_BET
+ > Will Smith             batter_total_bases     Under  1.5    -145   55.4%   57.7%   +2.3%   -2.5%    4  LEAN
+   Connelly Early         pitcher_hits_allowed   Over   5.5    +125   41.7%   43.8%   +2.1%   -1.5%    3  NO_BET
+   Edward Cabrera         pitcher_strikeouts     Over   5.5    -105   48.0%   49.9%   +2.0%   -2.5%    5  NO_BET
+ > Shane Baz              pitcher_hits_allowed   Under  5.5    -115   49.1%   51.0%   +1.9%   -4.7%    3  LEAN
+   Tanner Bibee           pitcher_hits_allowed   Over   4.5    +105   45.2%   47.1%   +1.9%   -3.4%    3  NO_BET
+   Bo Bichette            batter_total_bases     Under  1.5    -165   58.3%   60.3%   +1.9%   -3.2%    4  NO_BET
+ > Corey Seager           batter_total_bases     Under  1.5    -135   54.1%   56.0%   +1.9%   -2.5%    4  LEAN
+ > Yandy Diaz             batter_total_bases     Under  1.5    -145   55.4%   57.3%   +1.9%   -3.2%    4  LEAN
+ > Freddie Freeman        batter_total_bases     Under  1.5    -120   51.0%   52.9%   +1.9%   -3.1%    4  LEAN
+   Jung Hoo Lee           batter_total_bases     Over   1.5    +115   43.7%   45.5%   +1.9%   -2.1%    3  NO_BET
+ > Casey Schmitt          batter_total_bases     Under  1.5    -135   54.1%   55.9%   +1.8%   -2.7%    3  LEAN
+   Jesse Scholtens        pitcher_strikeouts     Under  3.5    +125   41.7%   43.5%   +1.8%   -2.2%    5  NO_BET
+ > Oneil Cruz             batter_total_bases     Under  1.5    -135   54.1%   55.9%   +1.8%   -2.7%    4  LEAN
+   Alex Bregman           batter_total_bases     Under  1.5    -160   57.5%   59.3%   +1.8%   -3.6%    4  NO_BET
+   Clay Holmes            pitcher_hits_allowed   Under  4.5    +120   42.5%   44.2%   +1.8%   -2.7%    3  NO_BET
+   Sal Stewart            batter_total_bases     Under  1.5    -150   56.3%   58.1%   +1.8%   -3.2%    4  NO_BET
+
+
+[Email] 23 picks today, 1 graded yesterday
+  Email sent to xjayray@gmail.com

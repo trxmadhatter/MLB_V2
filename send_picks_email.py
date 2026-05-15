@@ -1,0 +1,324 @@
+"""
+Send today's MLB V2 picks via email — full summary, no dashboard needed.
+Includes: today's picks, yesterday's results, running record + ROI.
+"""
+import os
+import smtplib
+import sys
+from datetime import date, datetime, timezone, timedelta
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from pathlib import Path
+
+ROOT = Path(__file__).parent
+sys.path.insert(0, str(ROOT))
+
+from dotenv import load_dotenv
+load_dotenv(ROOT / ".env")
+
+from db import get_conn
+
+
+def _fmt_odds(price: int) -> str:
+    return f"+{price}" if price > 0 else str(price)
+
+
+def _rec_color(rec: str) -> str:
+    return "#ff6b35" if rec == "RECOMMENDED" else "#00b894"
+
+
+def _result_color(result: str) -> tuple[str, str]:
+    if result == "WIN":   return "#00b894", "WIN"
+    if result == "LOSS":  return "#e74c3c", "LOSS"
+    if result == "PUSH":  return "#888",    "PUSH"
+    return "#555", result or "PENDING"
+
+
+def _profit(price: int) -> float:
+    return -100 / price if price < 0 else price / 100
+
+
+def get_today_picks(conn, today: str) -> list[dict]:
+    return [dict(r) for r in conn.execute("""
+        SELECT player_name, market_key, selection, point,
+               bovada_price, consensus_fair_prob, edge, recommendation,
+               home_team, away_team
+        FROM daily_picks
+        WHERE pick_date = ?
+          AND recommendation IN ('RECOMMENDED','LEAN')
+        ORDER BY edge DESC
+    """, (today,)).fetchall()]
+
+
+def get_yesterday_results(conn, yesterday: str) -> list[dict]:
+    return [dict(r) for r in conn.execute("""
+        SELECT player_name, market_key, selection, point,
+               bovada_price, edge, result, recommendation
+        FROM daily_picks
+        WHERE pick_date = ?
+          AND recommendation IN ('RECOMMENDED','LEAN')
+        ORDER BY result, edge DESC
+    """, (yesterday,)).fetchall()]
+
+
+def get_running_record(conn) -> dict:
+    row = conn.execute("""
+        SELECT
+            COUNT(*)                                                   AS total,
+            SUM(CASE WHEN result='WIN'  THEN 1 ELSE 0 END)            AS wins,
+            SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END)            AS losses,
+            SUM(CASE WHEN result='PUSH' THEN 1 ELSE 0 END)            AS pushes
+        FROM daily_picks
+        WHERE recommendation IN ('RECOMMENDED','LEAN')
+          AND result IN ('WIN','LOSS','PUSH')
+    """).fetchone()
+    if not row or row["total"] == 0:
+        return {"wins": 0, "losses": 0, "pushes": 0, "win_pct": 0.0, "net": 0.0, "roi": 0.0}
+
+    picks = conn.execute("""
+        SELECT bovada_price, result FROM daily_picks
+        WHERE recommendation IN ('RECOMMENDED','LEAN')
+          AND result IN ('WIN','LOSS','PUSH')
+    """).fetchall()
+
+    net = sum(_profit(p["bovada_price"]) if p["result"] == "WIN" else
+              (0 if p["result"] == "PUSH" else -1.0)
+              for p in picks)
+    wl  = row["wins"] + row["losses"]
+    return {
+        "wins":    row["wins"],
+        "losses":  row["losses"],
+        "pushes":  row["pushes"],
+        "win_pct": row["wins"] / wl * 100 if wl else 0.0,
+        "net":     net,
+        "roi":     net / wl * 100 if wl else 0.0,
+    }
+
+
+def section(title: str, content: str) -> str:
+    return f"""
+    <div style="margin-bottom:32px;">
+      <h2 style="font-size:14px;font-weight:700;color:#8fa8c8;text-transform:uppercase;
+                 letter-spacing:1.5px;margin:0 0 12px;padding-bottom:8px;
+                 border-bottom:1px solid #1e3a5f;">{title}</h2>
+      {content}
+    </div>"""
+
+
+def picks_table(picks: list[dict]) -> str:
+    if not picks:
+        return "<p style='color:#555;font-size:14px;margin:0;'>No qualifying picks today.</p>"
+
+    rows = ""
+    for p in picks:
+        color = _rec_color(p["recommendation"])
+        matchup = f"{p.get('away_team','?')} @ {p.get('home_team','?')}"
+        rows += f"""
+        <tr>
+          <td style="padding:11px 14px;border-bottom:1px solid #1a2a3a;">
+            <div style="font-weight:700;color:#fff;font-size:14px;">{p['player_name']}</div>
+            <div style="color:#556;font-size:11px;margin-top:2px;">{matchup}</div>
+          </td>
+          <td style="padding:11px 14px;border-bottom:1px solid #1a2a3a;color:#aaa;font-size:13px;">
+            {p['market_key'].replace('_',' ').title()}
+          </td>
+          <td style="padding:11px 14px;border-bottom:1px solid #1a2a3a;color:#fff;font-size:14px;font-weight:600;">
+            {p['selection']} {p['point']}
+          </td>
+          <td style="padding:11px 14px;border-bottom:1px solid #1a2a3a;color:#aaa;font-size:13px;">
+            {_fmt_odds(p['bovada_price'])}
+          </td>
+          <td style="padding:11px 14px;border-bottom:1px solid #1a2a3a;font-weight:700;
+                     color:{color};font-size:13px;">
+            {p['edge']*100:+.1f}%
+          </td>
+          <td style="padding:11px 14px;border-bottom:1px solid #1a2a3a;">
+            <span style="background:{color};color:#fff;padding:3px 9px;border-radius:4px;
+                         font-size:11px;font-weight:700;">{p['recommendation']}</span>
+          </td>
+        </tr>"""
+
+    return f"""
+    <table width="100%" cellpadding="0" cellspacing="0"
+           style="border-collapse:collapse;background:#0f1e2e;border-radius:8px;overflow:hidden;">
+      <thead>
+        <tr style="background:#0a1628;">
+          <th style="padding:9px 14px;text-align:left;color:#556;font-size:11px;text-transform:uppercase;">Player</th>
+          <th style="padding:9px 14px;text-align:left;color:#556;font-size:11px;text-transform:uppercase;">Market</th>
+          <th style="padding:9px 14px;text-align:left;color:#556;font-size:11px;text-transform:uppercase;">Pick</th>
+          <th style="padding:9px 14px;text-align:left;color:#556;font-size:11px;text-transform:uppercase;">Odds</th>
+          <th style="padding:9px 14px;text-align:left;color:#556;font-size:11px;text-transform:uppercase;">Edge</th>
+          <th style="padding:9px 14px;text-align:left;color:#556;font-size:11px;text-transform:uppercase;">Rating</th>
+        </tr>
+      </thead>
+      <tbody>{rows}</tbody>
+    </table>"""
+
+
+def results_table(picks: list[dict]) -> str:
+    if not picks:
+        return "<p style='color:#555;font-size:14px;margin:0;'>No graded picks from yesterday.</p>"
+
+    rows = ""
+    for p in picks:
+        color, label = _result_color(p["result"])
+        rows += f"""
+        <tr>
+          <td style="padding:10px 14px;border-bottom:1px solid #1a2a3a;font-weight:600;color:#fff;font-size:14px;">
+            {p['player_name']}
+          </td>
+          <td style="padding:10px 14px;border-bottom:1px solid #1a2a3a;color:#aaa;font-size:13px;">
+            {p['market_key'].replace('_',' ').title()}
+          </td>
+          <td style="padding:10px 14px;border-bottom:1px solid #1a2a3a;color:#fff;font-size:13px;">
+            {p['selection']} {p['point']}
+          </td>
+          <td style="padding:10px 14px;border-bottom:1px solid #1a2a3a;color:#aaa;font-size:13px;">
+            {_fmt_odds(p['bovada_price'])}
+          </td>
+          <td style="padding:10px 14px;border-bottom:1px solid #1a2a3a;">
+            <span style="background:{color};color:#fff;padding:3px 10px;border-radius:4px;
+                         font-size:12px;font-weight:700;">{label}</span>
+          </td>
+        </tr>"""
+
+    return f"""
+    <table width="100%" cellpadding="0" cellspacing="0"
+           style="border-collapse:collapse;background:#0f1e2e;border-radius:8px;overflow:hidden;">
+      <thead>
+        <tr style="background:#0a1628;">
+          <th style="padding:9px 14px;text-align:left;color:#556;font-size:11px;text-transform:uppercase;">Player</th>
+          <th style="padding:9px 14px;text-align:left;color:#556;font-size:11px;text-transform:uppercase;">Market</th>
+          <th style="padding:9px 14px;text-align:left;color:#556;font-size:11px;text-transform:uppercase;">Pick</th>
+          <th style="padding:9px 14px;text-align:left;color:#556;font-size:11px;text-transform:uppercase;">Odds</th>
+          <th style="padding:9px 14px;text-align:left;color:#556;font-size:11px;text-transform:uppercase;">Result</th>
+        </tr>
+      </thead>
+      <tbody>{rows}</tbody>
+    </table>"""
+
+
+def record_bar(rec: dict) -> str:
+    net_color  = "#00b894" if rec["net"] >= 0 else "#e74c3c"
+    roi_color  = "#00b894" if rec["roi"] >= 0 else "#e74c3c"
+    wl = rec["wins"] + rec["losses"]
+    return f"""
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+      <div style="background:#0f1e2e;border-radius:8px;padding:14px 20px;text-align:center;min-width:80px;">
+        <div style="font-size:22px;font-weight:700;color:#fff;">{rec['wins']}-{rec['losses']}</div>
+        <div style="font-size:11px;color:#556;text-transform:uppercase;margin-top:3px;">Record</div>
+      </div>
+      <div style="background:#0f1e2e;border-radius:8px;padding:14px 20px;text-align:center;min-width:80px;">
+        <div style="font-size:22px;font-weight:700;color:#fff;">{rec['win_pct']:.1f}%</div>
+        <div style="font-size:11px;color:#556;text-transform:uppercase;margin-top:3px;">Win Rate</div>
+      </div>
+      <div style="background:#0f1e2e;border-radius:8px;padding:14px 20px;text-align:center;min-width:80px;">
+        <div style="font-size:22px;font-weight:700;color:{net_color};">{rec['net']:+.1f}u</div>
+        <div style="font-size:11px;color:#556;text-transform:uppercase;margin-top:3px;">Net Units</div>
+      </div>
+      <div style="background:#0f1e2e;border-radius:8px;padding:14px 20px;text-align:center;min-width:80px;">
+        <div style="font-size:22px;font-weight:700;color:{roi_color};">{rec['roi']:+.1f}%</div>
+        <div style="font-size:11px;color:#556;text-transform:uppercase;margin-top:3px;">ROI</div>
+      </div>
+      <div style="background:#0f1e2e;border-radius:8px;padding:14px 20px;text-align:center;min-width:80px;">
+        <div style="font-size:22px;font-weight:700;color:#fff;">{wl}</div>
+        <div style="font-size:11px;color:#556;text-transform:uppercase;margin-top:3px;">Graded</div>
+      </div>
+    </div>"""
+
+
+def build_html(today_picks, yesterday_picks, record, today, yesterday) -> str:
+    today_label     = date.fromisoformat(today).strftime("%A, %B %d")
+    yesterday_label = date.fromisoformat(yesterday).strftime("%A, %B %d")
+
+    return f"""
+    <html>
+    <body style="background:#0a1628;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+                 padding:28px 24px;color:#fff;max-width:780px;margin:0 auto;">
+
+      <div style="margin-bottom:28px;">
+        <h1 style="font-size:24px;font-weight:800;margin:0 0 4px;color:#fff;">
+          MLB V2 &mdash; {today_label}
+        </h1>
+        <p style="color:#556;font-size:13px;margin:0;">
+          {len(today_picks)} pick{'s' if len(today_picks)!=1 else ''} today
+          &nbsp;·&nbsp; Pitcher Outs O / TB Under / P Hits Allowed U
+          &nbsp;·&nbsp; -145 to -101 &nbsp;·&nbsp; Edge &ge;1%
+        </p>
+      </div>
+
+      {section(f"Today's Picks — {today_label}", picks_table(today_picks))}
+      {section(f"Yesterday's Results — {yesterday_label}", results_table(yesterday_picks))}
+      {section("Running Record (Live Picks Only)", record_bar(record))}
+
+      <p style="color:#2a3a4a;font-size:11px;margin-top:24px;text-align:center;">
+        MLB V2 &nbsp;·&nbsp; Auto-generated at 5:30 AM PT
+      </p>
+    </body>
+    </html>"""
+
+
+def send(today_picks, yesterday_picks, record, today, yesterday) -> None:
+    email_from = os.getenv("EMAIL_FROM", "")
+    email_pass = os.getenv("EMAIL_PASSWORD", "")
+    email_to   = os.getenv("EMAIL_TO", email_from)
+
+    if not email_from or not email_pass:
+        print("  EMAIL_FROM / EMAIL_PASSWORD not set — skipping email")
+        return
+
+    today_label = date.fromisoformat(today).strftime("%A, %B %d")
+    subject     = f"MLB Picks — {today_label} ({len(today_picks)} picks)"
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"]    = email_from
+    msg["To"]      = email_to
+
+    plain_lines = ["=== TODAY'S PICKS ==="]
+    for p in today_picks:
+        plain_lines.append(
+            f"{p['player_name']} | {p['market_key']} | {p['selection']} {p['point']} | "
+            f"{_fmt_odds(p['bovada_price'])} | {p['edge']*100:+.1f}% edge | {p['recommendation']}"
+        )
+    plain_lines += ["", "=== YESTERDAY'S RESULTS ==="]
+    for p in yesterday_picks:
+        plain_lines.append(
+            f"{p['player_name']} | {p['selection']} {p['point']} | "
+            f"{_fmt_odds(p['bovada_price'])} | {p.get('result','PENDING')}"
+        )
+    plain_lines += [
+        "", "=== RUNNING RECORD ===",
+        f"{record['wins']}W - {record['losses']}L  |  {record['win_pct']:.1f}% win rate  |  "
+        f"{record['net']:+.1f} units  |  {record['roi']:+.1f}% ROI",
+    ]
+
+    msg.attach(MIMEText("\n".join(plain_lines), "plain"))
+    msg.attach(MIMEText(
+        build_html(today_picks, yesterday_picks, record, today, yesterday), "html"
+    ))
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(email_from, email_pass)
+        server.sendmail(email_from, email_to, msg.as_string())
+
+    print(f"  Email sent to {email_to}")
+
+
+def main() -> None:
+    now       = datetime.now(timezone.utc) - timedelta(hours=7)
+    today     = now.strftime("%Y-%m-%d")
+    yesterday = (now - timedelta(days=1)).strftime("%Y-%m-%d")
+
+    conn = get_conn()
+    today_picks     = get_today_picks(conn, today)
+    yesterday_picks = get_yesterday_results(conn, yesterday)
+    record          = get_running_record(conn)
+    conn.close()
+
+    print(f"\n[Email] {len(today_picks)} picks today, {len(yesterday_picks)} graded yesterday")
+    send(today_picks, yesterday_picks, record, today, yesterday)
+
+
+if __name__ == "__main__":
+    main()
