@@ -108,10 +108,56 @@ def init_db(conn: sqlite3.Connection) -> None:
             bet_placed             INTEGER NOT NULL DEFAULT 0,
             units_wagered          REAL,
             notes                  TEXT,
-            UNIQUE(pick_date, event_id, selection)
+            UNIQUE(pick_date, event_id, market_key, selection)
         );
     """)
     conn.commit()
+    # Recreate daily_game_picks if it has old UNIQUE constraint (missing market_key)
+    try:
+        unique_cols = {
+            row[2]
+            for idx in conn.execute("PRAGMA index_list(daily_game_picks)").fetchall()
+            if idx[3]  # idx[3] is "unique" flag
+            for row in conn.execute(f"PRAGMA index_info({idx[1]})").fetchall()
+        }
+        if "market_key" not in unique_cols:
+            conn.execute("DROP TABLE daily_game_picks")
+            conn.commit()
+            conn.execute("""
+                CREATE TABLE daily_game_picks (
+                    id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+                    pick_date              TEXT NOT NULL,
+                    pulled_at              TEXT NOT NULL,
+                    event_id               TEXT NOT NULL,
+                    commence_time          TEXT,
+                    home_team              TEXT NOT NULL,
+                    away_team              TEXT NOT NULL,
+                    market_key             TEXT NOT NULL,
+                    selection              TEXT NOT NULL,
+                    point                  REAL NOT NULL,
+                    bovada_price           INTEGER NOT NULL,
+                    bovada_break_even_prob REAL,
+                    bovada_fair_prob       REAL,
+                    consensus_fair_prob    REAL,
+                    consensus_book_count   INTEGER,
+                    edge                   REAL,
+                    recommendation         TEXT NOT NULL,
+                    signal_score           INTEGER,
+                    signal_breakdown       TEXT,
+                    result                 TEXT NOT NULL DEFAULT 'PENDING',
+                    home_runs              INTEGER,
+                    away_runs              INTEGER,
+                    actual_total           REAL,
+                    profit_units           REAL,
+                    bet_placed             INTEGER NOT NULL DEFAULT 0,
+                    units_wagered          REAL,
+                    notes                  TEXT,
+                    UNIQUE(pick_date, event_id, market_key, selection)
+                )
+            """)
+            conn.commit()
+    except Exception:
+        pass
     try:
         conn.execute("ALTER TABLE daily_picks ADD COLUMN bovada_fair_prob REAL NOT NULL DEFAULT 0")
         conn.commit()
@@ -343,6 +389,14 @@ def get_cumulative_pnl(conn: sqlite3.Connection) -> list[sqlite3.Row]:
 
 
 def upsert_game_pick(conn: sqlite3.Connection, pick: dict) -> None:
+    pick = {**pick}
+    pick.setdefault("signal_score", None)
+    pick.setdefault("signal_breakdown", None)
+    pick.setdefault("commence_time", None)
+    pick.setdefault("bovada_break_even_prob", None)
+    pick.setdefault("bovada_fair_prob", None)
+    pick.setdefault("consensus_fair_prob", None)
+    pick.setdefault("consensus_book_count", None)
     conn.execute("""
         INSERT INTO daily_game_picks
             (pick_date, pulled_at, event_id, commence_time, home_team, away_team,
@@ -354,7 +408,7 @@ def upsert_game_pick(conn: sqlite3.Connection, pick: dict) -> None:
              :market_key, :selection, :point, :bovada_price, :bovada_break_even_prob,
              :bovada_fair_prob, :consensus_fair_prob, :consensus_book_count,
              :edge, :recommendation, :signal_score, :signal_breakdown)
-        ON CONFLICT(pick_date, event_id, selection) DO UPDATE SET
+        ON CONFLICT(pick_date, event_id, market_key, selection) DO UPDATE SET
             bovada_price=excluded.bovada_price,
             bovada_break_even_prob=excluded.bovada_break_even_prob,
             bovada_fair_prob=excluded.bovada_fair_prob,
