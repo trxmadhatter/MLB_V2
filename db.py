@@ -63,6 +63,8 @@ def init_db(conn: sqlite3.Connection) -> None:
             confidence_factors    TEXT,
             signal_score          INTEGER,
             signal_breakdown      TEXT,
+            sim_prob              REAL,
+            team_abbr             TEXT,
             UNIQUE(event_id, player_name, market_key, selection, point, pick_date)
         );
 
@@ -76,6 +78,37 @@ def init_db(conn: sqlite3.Connection) -> None:
             selection   TEXT NOT NULL,
             point       REAL NOT NULL,
             reason      TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS daily_game_picks (
+            id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+            pick_date              TEXT NOT NULL,
+            pulled_at              TEXT NOT NULL,
+            event_id               TEXT NOT NULL,
+            commence_time          TEXT,
+            home_team              TEXT NOT NULL,
+            away_team              TEXT NOT NULL,
+            market_key             TEXT NOT NULL,
+            selection              TEXT NOT NULL,
+            point                  REAL NOT NULL,
+            bovada_price           INTEGER NOT NULL,
+            bovada_break_even_prob REAL,
+            bovada_fair_prob       REAL,
+            consensus_fair_prob    REAL,
+            consensus_book_count   INTEGER,
+            edge                   REAL,
+            recommendation         TEXT NOT NULL,
+            signal_score           INTEGER,
+            signal_breakdown       TEXT,
+            result                 TEXT NOT NULL DEFAULT 'PENDING',
+            home_runs              INTEGER,
+            away_runs              INTEGER,
+            actual_total           REAL,
+            profit_units           REAL,
+            bet_placed             INTEGER NOT NULL DEFAULT 0,
+            units_wagered          REAL,
+            notes                  TEXT,
+            UNIQUE(pick_date, event_id, selection)
         );
     """)
     conn.commit()
@@ -106,6 +139,8 @@ def init_db(conn: sqlite3.Connection) -> None:
     for col_sql in [
         "ALTER TABLE daily_picks ADD COLUMN signal_score INTEGER",
         "ALTER TABLE daily_picks ADD COLUMN signal_breakdown TEXT",
+        "ALTER TABLE daily_picks ADD COLUMN sim_prob REAL",
+        "ALTER TABLE daily_picks ADD COLUMN team_abbr TEXT",
     ]:
         try:
             conn.execute(col_sql)
@@ -139,19 +174,21 @@ def upsert_pick(conn: sqlite3.Connection, pick: dict) -> None:
     pick = {**pick}
     pick.setdefault("signal_score", None)
     pick.setdefault("signal_breakdown", None)
+    pick.setdefault("sim_prob", None)
+    pick.setdefault("team_abbr", None)
     conn.execute("""
         INSERT INTO daily_picks
             (pick_date, pulled_at, event_id, commence_time, home_team, away_team,
              player_name, market_key, selection, point, bovada_price,
              bovada_break_even_prob, bovada_fair_prob, consensus_fair_prob,
              consensus_book_count, edge, ev, recommendation,
-             signal_score, signal_breakdown)
+             signal_score, signal_breakdown, sim_prob, team_abbr)
         VALUES
             (:pick_date, :pulled_at, :event_id, :commence_time, :home_team, :away_team,
              :player_name, :market_key, :selection, :point, :bovada_price,
              :bovada_break_even_prob, :bovada_fair_prob, :consensus_fair_prob,
              :consensus_book_count, :edge, :ev, :recommendation,
-             :signal_score, :signal_breakdown)
+             :signal_score, :signal_breakdown, :sim_prob, :team_abbr)
         ON CONFLICT(event_id, player_name, market_key, selection, point, pick_date)
         DO UPDATE SET
             bovada_price=excluded.bovada_price,
@@ -163,7 +200,9 @@ def upsert_pick(conn: sqlite3.Connection, pick: dict) -> None:
             ev=excluded.ev,
             recommendation=excluded.recommendation,
             signal_score=excluded.signal_score,
-            signal_breakdown=excluded.signal_breakdown
+            signal_breakdown=excluded.signal_breakdown,
+            sim_prob=excluded.sim_prob,
+            team_abbr=excluded.team_abbr
     """, pick)
     conn.commit()
 
@@ -301,3 +340,54 @@ def get_cumulative_pnl(conn: sqlite3.Connection) -> list[sqlite3.Row]:
         GROUP BY pick_date
         ORDER BY pick_date
     """).fetchall()
+
+
+def upsert_game_pick(conn: sqlite3.Connection, pick: dict) -> None:
+    conn.execute("""
+        INSERT INTO daily_game_picks
+            (pick_date, pulled_at, event_id, commence_time, home_team, away_team,
+             market_key, selection, point, bovada_price, bovada_break_even_prob,
+             bovada_fair_prob, consensus_fair_prob, consensus_book_count,
+             edge, recommendation, signal_score, signal_breakdown)
+        VALUES
+            (:pick_date, :pulled_at, :event_id, :commence_time, :home_team, :away_team,
+             :market_key, :selection, :point, :bovada_price, :bovada_break_even_prob,
+             :bovada_fair_prob, :consensus_fair_prob, :consensus_book_count,
+             :edge, :recommendation, :signal_score, :signal_breakdown)
+        ON CONFLICT(pick_date, event_id, selection) DO UPDATE SET
+            bovada_price=excluded.bovada_price,
+            bovada_break_even_prob=excluded.bovada_break_even_prob,
+            bovada_fair_prob=excluded.bovada_fair_prob,
+            consensus_fair_prob=excluded.consensus_fair_prob,
+            consensus_book_count=excluded.consensus_book_count,
+            edge=excluded.edge,
+            recommendation=excluded.recommendation,
+            signal_score=excluded.signal_score,
+            signal_breakdown=excluded.signal_breakdown
+    """, pick)
+    conn.commit()
+
+
+def get_pending_game_picks(conn: sqlite3.Connection, pick_date: str) -> list[sqlite3.Row]:
+    return conn.execute(
+        "SELECT * FROM daily_game_picks WHERE pick_date=? AND result='PENDING'",
+        (pick_date,),
+    ).fetchall()
+
+
+def update_game_pick_result(conn: sqlite3.Connection, pick_id: int, result: str,
+                             home_runs: int, away_runs: int, actual_total: float,
+                             profit_units: float) -> None:
+    conn.execute("""
+        UPDATE daily_game_picks
+        SET result=?, home_runs=?, away_runs=?, actual_total=?, profit_units=?
+        WHERE id=?
+    """, (result, home_runs, away_runs, actual_total, profit_units, pick_id))
+    conn.commit()
+
+
+def get_today_game_picks(conn: sqlite3.Connection, pick_date: str) -> list[sqlite3.Row]:
+    return conn.execute(
+        "SELECT * FROM daily_game_picks WHERE pick_date=? ORDER BY edge DESC",
+        (pick_date,),
+    ).fetchall()
