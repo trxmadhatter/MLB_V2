@@ -25,7 +25,7 @@ from db import get_conn, init_db, upsert_pick, log_no_bet, get_snapshots, upsert
 from pull_props import pull_and_store
 from consensus import compute_consensus, vig_remove_pair
 from edge import bovada_break_even, compute_edge, compute_ev, classify_by_score
-from grade import grade_pending_picks
+from grade import grade_pending_picks, grade_pending_game_picks
 from scorer import score_pick
 from scorer_game import score_game_total
 from simulate import simulate_pick
@@ -45,6 +45,7 @@ def _analyze(conn, pulled_at: str, today: str,
     Returns (picks_evaluated, no_bets_logged).
     """
     rows = [dict(r) for r in get_snapshots(conn, pulled_at)]
+    rows = [r for r in rows if r["player_name"] != ""]
 
     groups: dict[tuple, list[dict]] = defaultdict(list)
     for row in rows:
@@ -423,7 +424,7 @@ def _print_game_summary(conn, pick_date: str) -> None:
         print(
             f"{tag} {r['home_team']:<20} {r['away_team']:<20} {r['selection']:<6} "
             f"{r['point']:>4.1f}  {r['bovada_price']:>+6d}  "
-            f"{r['edge']:>+5.1%}  {r['signal_score']:>5d}  {r['recommendation']}"
+            f"{r['edge']:>+5.1%}  {r['signal_score'] or 0:>5d}  {r['recommendation']}"
         )
 
 
@@ -472,7 +473,6 @@ def main() -> None:
     print(f"  Graded: {graded} picks")
 
     print(f"\n[4b] Grading game picks for {yesterday}...")
-    from grade import grade_pending_game_picks
     game_graded = grade_pending_game_picks(conn, yesterday)
     print(f"  Graded: {game_graded} game picks")
 
