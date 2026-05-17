@@ -21,12 +21,15 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 
 from config import PICKS_DIR, BOVADA_KEYS, MIN_CONSENSUS_BOOKS
-from db import get_conn, init_db, upsert_pick, log_no_bet, get_snapshots
+from db import get_conn, init_db, upsert_pick, log_no_bet, get_snapshots, upsert_game_pick
 from pull_props import pull_and_store
 from consensus import compute_consensus, vig_remove_pair
 from edge import bovada_break_even, compute_edge, compute_ev, classify_by_score
 from grade import grade_pending_picks
 from scorer import score_pick
+from scorer_game import score_game_total
+from simulate import simulate_pick
+from stats import find_player_info as _find_player_info
 
 
 def _pt_date(offset_days: int = 0) -> str:
@@ -129,6 +132,17 @@ def _analyze(conn, pulled_at: str, today: str,
             rec = classify_by_score(sig_score, edge, market_key, selection,
                                     price=bov["price"])
 
+            sim_prob = None
+            if rec in ("LEAN", "RECOMMENDED"):
+                sim = simulate_pick(player_name, market_key, selection, point,
+                                    int(today[:4]))
+                if sim:
+                    sim_prob = sim["sim_prob"]
+
+            _pinfo = _find_player_info(player_name, int(today[:4]))
+            _tid   = (_pinfo or {}).get("team_id")
+            team_abbr = _TEAM_ID_ABBR.get(_tid, "") if _tid else ""
+
             upsert_pick(conn, {
                 **base,
                 "selection":              selection,
@@ -142,6 +156,8 @@ def _analyze(conn, pulled_at: str, today: str,
                 "recommendation":         rec,
                 "signal_score":           sig_score,
                 "signal_breakdown":       json.dumps(breakdown),
+                "sim_prob":               sim_prob,
+                "team_abbr":              team_abbr,
             })
             picks_evaluated += 1
 
@@ -197,34 +213,218 @@ def _print_one_sided(conn, pulled_at: str) -> None:
         print(f"  {r['player_name']:<22} {r['market_key']:<22} {r['selection']:<6} {r['point']:>4.1f}  {r['price']:>+6d}  {r['other_books']:>9}")
 
 
+_MARKET_SHORT = {
+    "batter_total_bases":   "BTB",
+    "batter_hits":          "BHT",
+    "pitcher_strikeouts":   "PKO",
+    "pitcher_hits_allowed": "PHA",
+    "pitcher_outs":         "PTS",
+}
+
+# MLB team IDs are stable across seasons
+_TEAM_ID_ABBR: dict[int, str] = {
+    108: "LAA", 109: "ARI", 110: "BAL", 111: "BOS", 112: "CHC",
+    113: "CIN", 114: "CLE", 115: "COL", 116: "DET", 117: "HOU",
+    118: "KC",  119: "LAD", 120: "WSH", 121: "NYM", 133: "OAK",
+    134: "PIT", 135: "SD",  136: "SEA", 137: "SF",  138: "STL",
+    139: "TB",  140: "TEX", 141: "TOR", 142: "MIN", 143: "PHI",
+    144: "ATL", 145: "CWS", 146: "MIA", 147: "NYY", 158: "MIL",
+}
+
+
+def _team_abbr(player_name: str, season: int) -> str:
+    from stats import find_player_info
+    try:
+        info = find_player_info(player_name, season)
+        if info:
+            tid = info.get("team_id")
+            if tid and tid in _TEAM_ID_ABBR:
+                return _TEAM_ID_ABBR[tid]
+    except Exception:
+        pass
+    return "???"
+
+
 def _print_summary(conn, pick_date: str, pulled_at: str) -> None:
+    season = int(pick_date[:4])
+
+    # --- overall counts (internal reference) ---
     counts = conn.execute("""
         SELECT recommendation, COUNT(*) AS cnt
         FROM daily_picks WHERE pick_date = ?
         GROUP BY recommendation ORDER BY cnt DESC
     """, (pick_date,)).fetchall()
-    for row in counts:
-        print(f"  {row['recommendation']}: {row['cnt']}")
+    total_by_rec = {r["recommendation"]: r["cnt"] for r in counts}
+    total_eval = sum(total_by_rec.values())
+    print(f"  Evaluated: {total_eval}  |  "
+          + "  ".join(f"{k}: {v}" for k, v in total_by_rec.items()))
 
-    rows = conn.execute("""
+    # --- sim-confirmed Bovada bets ---
+    bets = conn.execute("""
         SELECT player_name, market_key, selection, point,
-               bovada_price, edge, recommendation,
-               consensus_book_count, signal_score, signal_breakdown
+               bovada_price, bovada_break_even_prob, edge,
+               recommendation, signal_score, sim_prob
         FROM daily_picks
         WHERE pick_date = ?
-        ORDER BY signal_score DESC NULLS LAST LIMIT 25
+          AND recommendation IN ('LEAN', 'RECOMMENDED')
+          AND sim_prob IS NOT NULL
+          AND sim_prob >= bovada_break_even_prob
+        ORDER BY recommendation DESC, sim_prob DESC, edge DESC
     """, (pick_date,)).fetchall()
-    if rows:
-        print(f"\n  {'PLAYER':<22} {'MARKET':<22} {'S':<5} {'PT':>4}  {'PRICE':>6}  {'EDGE':>6}  {'SCORE':>5}  REC")
-        print("  " + "-" * 95)
-        for p in rows:
-            tag = "**" if p["recommendation"] == "RECOMMENDED" else (" >" if p["recommendation"] == "LEAN" else "  ")
+
+    print(f"\n{'='*78}")
+    print(f"  BOVADA BETS — {pick_date}  ({len(bets)} sim-confirmed)")
+    print(f"{'='*78}")
+
+    if not bets:
+        print("  No picks passed simulation filter today.")
+    else:
+        print(f"  {'PLAYER':<22} {'TEAM':<4} {'MKT':<4} {'S':<5} {'LINE':>4}  "
+              f"{'BOVADA':>7}  {'EDGE':>6}  {'SIM%':>5}  {'BEV%':>5}  TIER")
+        print("  " + "-" * 84)
+        for p in bets:
+            tag = "**" if p["recommendation"] == "RECOMMENDED" else " >"
+            mkt  = _MARKET_SHORT.get(p["market_key"], p["market_key"][:4])
+            team = _team_abbr(p["player_name"], season)
+            bev_pct = p["bovada_break_even_prob"] * 100
+            sim_pct = p["sim_prob"] * 100
             print(
-                f"{tag} {p['player_name']:<22} {p['market_key']:<22} {p['selection']:<5} {p['point']:>4.1f}"
-                f"  {p['bovada_price']:>+6d}  {p['edge']:>+6.1%}  {p['signal_score'] or 0:>5}  {p['recommendation']}"
+                f"{tag} {p['player_name']:<22} {team:<4} {mkt:<4} {p['selection']:<5} "
+                f"{p['point']:>4.1f}  {p['bovada_price']:>+7d}  "
+                f"{p['edge']:>+6.1%}  {sim_pct:>4.0f}%  {bev_pct:>4.0f}%  "
+                f"{p['recommendation']}"
             )
 
+    # --- picks that had an edge but simulation rejected ---
+    rejected = conn.execute("""
+        SELECT COUNT(*) AS cnt FROM daily_picks
+        WHERE pick_date = ?
+          AND recommendation IN ('LEAN', 'RECOMMENDED')
+          AND (sim_prob IS NULL OR sim_prob < bovada_break_even_prob)
+    """, (pick_date,)).fetchone()["cnt"]
+    if rejected:
+        print(f"\n  ({rejected} LEAN/RECOMMENDED picks rejected by simulation or no data)")
+
     _print_one_sided(conn, pulled_at)
+
+
+def _analyze_games(conn, pulled_at: str, today: str,
+                   game_data: dict | None = None) -> tuple[int, int]:
+    """
+    Score game totals (Over/Under) using consensus/edge infrastructure.
+    Returns (games_evaluated, no_bets_logged).
+    No-bets for game totals are silently skipped (no no_bets table for games).
+    """
+    rows = [dict(r) for r in get_snapshots(conn, pulled_at)]
+    # Filter to totals rows only (player_name == "" distinguishes game totals)
+    rows = [r for r in rows if r["market_key"] == "totals" and r["player_name"] == ""]
+
+    groups: dict[tuple, list[dict]] = defaultdict(list)
+    for row in rows:
+        key = (row["event_id"], row["market_key"])
+        groups[key].append(row)
+
+    games_evaluated = 0
+
+    for (event_id, market_key), group_rows in groups.items():
+        bovada_rows = [r for r in group_rows if r["bookmaker_key"] in BOVADA_KEYS]
+        if not bovada_rows:
+            continue
+
+        meta = bovada_rows[0]
+
+        bov_over  = next((r for r in bovada_rows if r["selection"] == "Over"),  None)
+        bov_under = next((r for r in bovada_rows if r["selection"] == "Under"), None)
+
+        if bov_over is None or bov_under is None or bov_over["point"] != bov_under["point"]:
+            continue  # no no_bets table for game picks; just skip
+
+        point = bov_over["point"]
+
+        bov_fair_over, bov_fair_under = vig_remove_pair(bov_over["price"], bov_under["price"])
+
+        consensus = compute_consensus(
+            group_rows,
+            min_books=MIN_CONSENSUS_BOOKS,
+            bovada_keys=BOVADA_KEYS,
+        )
+
+        for selection in ("Over", "Under"):
+            bov      = bov_over  if selection == "Over"  else bov_under
+            bov_fair = bov_fair_over if selection == "Over" else bov_fair_under
+
+            if not consensus["ok"]:
+                continue  # skip silently for game picks
+
+            fair_prob = (
+                consensus["fair_prob_over"] if selection == "Over"
+                else consensus["fair_prob_under"]
+            )
+            bev  = bovada_break_even(bov["price"])
+            edge = compute_edge(fair_prob, bov_fair)
+
+            sig_score, breakdown = score_game_total(
+                home_team=meta["home_team"],
+                away_team=meta["away_team"],
+                selection=selection,
+                point=point,
+                edge=edge,
+                game_date=today,
+                game_data=game_data,
+            )
+
+            rec = classify_by_score(sig_score, edge, market_key, selection,
+                                    price=bov["price"])
+
+            upsert_game_pick(conn, {
+                "pick_date":              today,
+                "pulled_at":              pulled_at,
+                "event_id":               event_id,
+                "commence_time":          meta["commence_time"],
+                "home_team":              meta["home_team"],
+                "away_team":              meta["away_team"],
+                "market_key":             market_key,
+                "selection":              selection,
+                "point":                  point,
+                "bovada_price":           bov["price"],
+                "bovada_break_even_prob": round(bev,       6),
+                "bovada_fair_prob":       round(bov_fair,  6),
+                "consensus_fair_prob":    round(fair_prob, 6),
+                "consensus_book_count":   consensus["book_count"],
+                "edge":                   round(edge, 6),
+                "recommendation":         rec,
+                "signal_score":           sig_score,
+                "signal_breakdown":       json.dumps(breakdown),
+            })
+            games_evaluated += 1
+
+    return games_evaluated, 0
+
+
+def _print_game_summary(conn, pick_date: str) -> None:
+    rows = conn.execute("""
+        SELECT home_team, away_team, selection, point, bovada_price,
+               edge, signal_score, recommendation
+        FROM daily_game_picks
+        WHERE pick_date = ?
+          AND recommendation IN ('LEAN', 'RECOMMENDED')
+        ORDER BY recommendation DESC, signal_score DESC
+    """, (pick_date,)).fetchall()
+
+    print(f"\n  GAME TOTALS — {pick_date}")
+    if not rows:
+        print("  No game total picks today.")
+        return
+
+    print(f"  {'HOME':<20} {'AWAY':<20} {'SEL':<6} {'LINE':>4}  {'BOVADA':>6}  {'EDGE':>6}  {'SCORE':>5}  TIER")
+    print("  " + "-" * 80)
+    for r in rows:
+        tag = "**" if r["recommendation"] == "RECOMMENDED" else " >"
+        print(
+            f"{tag} {r['home_team']:<20} {r['away_team']:<20} {r['selection']:<6} "
+            f"{r['point']:>4.1f}  {r['bovada_price']:>+6d}  "
+            f"{r['edge']:>+5.1%}  {r['signal_score']:>5d}  {r['recommendation']}"
+        )
 
 
 def main() -> None:
@@ -263,13 +463,23 @@ def main() -> None:
     csv_path = _export_csv(conn, today)
     print(f"  CSV: {csv_path}")
 
+    print("\n[3b] Scoring game totals...")
+    games_eval, _ = _analyze_games(conn, pulled_at, today, game_data=game_data)
+    print(f"  Game lines evaluated: {games_eval}")
+
     print(f"\n[4/4] Grading picks for {yesterday}...")
     graded = grade_pending_picks(conn, yesterday)
     print(f"  Graded: {graded} picks")
 
+    print(f"\n[4b] Grading game picks for {yesterday}...")
+    from grade import grade_pending_game_picks
+    game_graded = grade_pending_game_picks(conn, yesterday)
+    print(f"  Graded: {game_graded} game picks")
+
     print(f"\n{'-'*50}")
     print(f"  Today's picks ({today}):")
     _print_summary(conn, today, pulled_at)
+    _print_game_summary(conn, today)
     print()
 
     conn.close()
