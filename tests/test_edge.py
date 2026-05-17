@@ -59,7 +59,8 @@ class TestClassify:
         assert classify(0.009, 0.01, **GOOD_ARGS) == "NO_BET"
 
     def test_no_bet_wrong_market(self):
-        assert classify(0.05, 0.03, market_key="pitcher_strikeouts", selection="Over", price=-115) == "NO_BET"
+        # pitcher_earned_runs is not in the whitelist
+        assert classify(0.05, 0.03, market_key="pitcher_earned_runs", selection="Over", price=-115) == "NO_BET"
 
     def test_no_bet_wrong_direction(self):
         assert classify(0.05, 0.03, market_key="pitcher_outs", selection="Under", price=-115) == "NO_BET"
@@ -68,7 +69,8 @@ class TestClassify:
         assert classify(0.05, 0.03, market_key="pitcher_outs", selection="Over", price=-160) == "NO_BET"
 
     def test_no_bet_positive_odds(self):
-        assert classify(0.05, 0.03, market_key="pitcher_outs", selection="Over", price=110) == "NO_BET"
+        # price > BET_PRICE_MAX (150) is blocked
+        assert classify(0.05, 0.03, market_key="pitcher_outs", selection="Over", price=160) == "NO_BET"
 
     def test_no_bet_price_at_boundary_min(self):
         assert classify(0.05, 0.03, market_key="pitcher_outs", selection="Over", price=-145) == "RECOMMENDED"
