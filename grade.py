@@ -103,6 +103,77 @@ def get_game_results(date_str: str) -> list[dict]:
     return results
 
 
+def get_game_scores(date_str: str) -> list[dict]:
+    """
+    Returns list of {home_team, away_team, home_runs, away_runs} for Final games.
+    date_str: 'YYYY-MM-DD'
+    """
+    url = "https://statsapi.mlb.com/api/v1/schedule"
+    try:
+        resp = requests.get(url, params={
+            "sportId": 1,
+            "date": date_str,
+            "hydrate": "linescore",
+        }, timeout=30)
+        resp.raise_for_status()
+    except Exception as exc:
+        print(f"  Game scores fetch failed: {exc}")
+        return []
+
+    results = []
+    for date_entry in resp.json().get("dates", []):
+        for game in date_entry.get("games", []):
+            if game.get("status", {}).get("abstractGameState", "") != "Final":
+                continue
+            linescore = game.get("linescore", {})
+            home_runs = linescore.get("teams", {}).get("home", {}).get("runs")
+            away_runs = linescore.get("teams", {}).get("away", {}).get("runs")
+            if home_runs is None or away_runs is None:
+                continue
+            results.append({
+                "home_team": game.get("teams", {}).get("home", {}).get("team", {}).get("name", ""),
+                "away_team": game.get("teams", {}).get("away", {}).get("team", {}).get("name", ""),
+                "home_runs": int(home_runs),
+                "away_runs": int(away_runs),
+            })
+    return results
+
+
+def grade_pending_game_picks(conn, results_date: str) -> int:
+    """Grade all PENDING game picks for results_date. Returns count graded."""
+    from db import get_pending_game_picks, update_game_pick_result
+
+    print(f"  Fetching game scores for {results_date}...")
+    scores = get_game_scores(results_date)
+    print(f"  Got {len(scores)} final game scores")
+
+    pending = get_pending_game_picks(conn, results_date)
+    graded = 0
+    for pick in pending:
+        matched = None
+        for score in scores:
+            home_match = (pick["home_team"].lower() in score["home_team"].lower() or
+                          score["home_team"].lower() in pick["home_team"].lower())
+            away_match = (pick["away_team"].lower() in score["away_team"].lower() or
+                          score["away_team"].lower() in pick["away_team"].lower())
+            if home_match and away_match:
+                matched = score
+                break
+        if not matched:
+            continue
+
+        actual_total = matched["home_runs"] + matched["away_runs"]
+        result = grade_outcome(pick["selection"], pick["point"], actual_total)
+        profit = calc_profit(result, pick["bovada_price"])
+        update_game_pick_result(
+            conn, pick["id"], result,
+            matched["home_runs"], matched["away_runs"], actual_total, profit
+        )
+        graded += 1
+
+    return graded
+
+
 def grade_pending_picks(conn, results_date: str) -> int:
     """
     Grade all PENDING picks for results_date using live MLB Stats API.
