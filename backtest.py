@@ -73,6 +73,10 @@ def init_backtest_db(conn: sqlite3.Connection) -> None:
             picks_analyzed INTEGER NOT NULL
         );
     """)
+    existing = {r[1] for r in conn.execute("PRAGMA table_info(backtest_picks)")}
+    for col, typedef in [("signal_score", "INTEGER"), ("signal_breakdown", "TEXT")]:
+        if col not in existing:
+            conn.execute(f"ALTER TABLE backtest_picks ADD COLUMN {col} {typedef}")
     conn.commit()
 
 
