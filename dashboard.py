@@ -201,9 +201,10 @@ def _sim_badge(sim_prob, bev) -> str:
     )
 
 
-def _render_game_picks(conn, today: str, show_all: bool, min_score: int) -> None:
-    picks = get_today_game_picks(conn, today)
+def _render_game_picks(picks: list, show_all: bool, min_score: int,
+                       matchup_filter: list | None = None) -> None:
     if not picks:
+        st.info("No game total picks for this date. Run the pipeline first.")
         return
 
     def _passes_game(p):
@@ -213,14 +214,16 @@ def _render_game_picks(conn, today: str, show_all: bool, min_score: int) -> None
             return False
         if p["signal_score"] is not None and p["signal_score"] < min_score:
             return False
+        if matchup_filter:
+            label = f"{p.get('away_team','?')} @ {p.get('home_team','?')}"
+            if label not in matchup_filter:
+                return False
         return True
 
     visible = [p for p in picks if _passes_game(p)]
     if not visible:
+        st.info("No game picks match current filters.")
         return
-
-    st.markdown("---")
-    st.subheader("Game Totals")
 
     for pick in visible:
         card_cls  = _card_class(pick["recommendation"])
@@ -590,10 +593,30 @@ def main() -> None:
     with tab1:
         _render_today(conn, today)
     with tab2:
-        g_col_a, g_col_b = st.columns([2, 1.5])
-        g_show_all = g_col_a.checkbox("Show all evaluated game lines", value=False)
-        g_min_score = g_col_b.slider("Min signal score", 0, 90, 0, step=5, key="g_min_score")
-        _render_game_picks(conn, today, show_all=g_show_all, min_score=g_min_score)
+        from datetime import date as _date
+        gd_col, ga_col, gb_col = st.columns([1.5, 2, 1.5])
+        g_date = gd_col.date_input(
+            "Game date", value=_date.fromisoformat(today),
+            min_value=_date(2025, 1, 1), key="g_date"
+        )
+        g_show_all  = ga_col.checkbox("Show all evaluated game lines", value=False, key="g_show_all")
+        g_min_score = gb_col.slider("Min signal score", 0, 90, 0, step=5, key="g_min_score")
+
+        g_picks_all = get_today_game_picks(conn, str(g_date))
+        matchup_options = sorted({
+            f"{p.get('away_team','?')} @ {p.get('home_team','?')}"
+            for p in g_picks_all
+        })
+        g_matchup = st.multiselect(
+            "Filter by game (leave blank for all)",
+            options=matchup_options, default=[], key="g_matchup"
+        )
+        _render_game_picks(
+            g_picks_all,
+            show_all=g_show_all,
+            min_score=g_min_score,
+            matchup_filter=g_matchup if g_matchup else None,
+        )
     with tab3:
         _render_active_bets(conn)
     with tab4:

@@ -38,6 +38,28 @@ def _profit(price: int) -> float:
     return -100 / price if price < 0 else price / 100
 
 
+def get_today_game_picks(conn, today: str) -> list[dict]:
+    return [dict(r) for r in conn.execute("""
+        SELECT home_team, away_team, market_key, selection, point,
+               bovada_price, edge, recommendation, signal_score
+        FROM daily_game_picks
+        WHERE pick_date = ?
+          AND recommendation IN ('RECOMMENDED','LEAN')
+        ORDER BY recommendation DESC, signal_score DESC
+    """, (today,)).fetchall()]
+
+
+def get_yesterday_game_results(conn, yesterday: str) -> list[dict]:
+    return [dict(r) for r in conn.execute("""
+        SELECT home_team, away_team, selection, point,
+               bovada_price, edge, result, recommendation
+        FROM daily_game_picks
+        WHERE pick_date = ?
+          AND recommendation IN ('RECOMMENDED','LEAN')
+        ORDER BY result, edge DESC
+    """, (yesterday,)).fetchall()]
+
+
 def get_today_picks(conn, today: str) -> list[dict]:
     return [dict(r) for r in conn.execute("""
         SELECT player_name, market_key, selection, point,
@@ -198,6 +220,94 @@ def results_table(picks: list[dict]) -> str:
     </table>"""
 
 
+def game_picks_table(picks: list[dict]) -> str:
+    if not picks:
+        return "<p style='color:#555;font-size:14px;margin:0;'>No qualifying game total picks today.</p>"
+
+    rows = ""
+    for p in picks:
+        color = _rec_color(p["recommendation"])
+        direction = "Over" if p["selection"].lower() == "over" else "Under"
+        rows += f"""
+        <tr>
+          <td style="padding:11px 14px;border-bottom:1px solid #1a2a3a;">
+            <div style="font-weight:700;color:#fff;font-size:14px;">
+              {p.get('away_team','?')} @ {p.get('home_team','?')}
+            </div>
+            <div style="color:#556;font-size:11px;margin-top:2px;">Game Total</div>
+          </td>
+          <td style="padding:11px 14px;border-bottom:1px solid #1a2a3a;color:#fff;font-size:14px;font-weight:600;">
+            {direction} {p['point']}
+          </td>
+          <td style="padding:11px 14px;border-bottom:1px solid #1a2a3a;color:#aaa;font-size:13px;">
+            {_fmt_odds(p['bovada_price'])}
+          </td>
+          <td style="padding:11px 14px;border-bottom:1px solid #1a2a3a;font-weight:700;
+                     color:{color};font-size:13px;">
+            {p['edge']*100:+.1f}%
+          </td>
+          <td style="padding:11px 14px;border-bottom:1px solid #1a2a3a;">
+            <span style="background:{color};color:#fff;padding:3px 9px;border-radius:4px;
+                         font-size:11px;font-weight:700;">{p['recommendation']}</span>
+          </td>
+        </tr>"""
+
+    return f"""
+    <table width="100%" cellpadding="0" cellspacing="0"
+           style="border-collapse:collapse;background:#0f1e2e;border-radius:8px;overflow:hidden;">
+      <thead>
+        <tr style="background:#0a1628;">
+          <th style="padding:9px 14px;text-align:left;color:#556;font-size:11px;text-transform:uppercase;">Matchup</th>
+          <th style="padding:9px 14px;text-align:left;color:#556;font-size:11px;text-transform:uppercase;">Pick</th>
+          <th style="padding:9px 14px;text-align:left;color:#556;font-size:11px;text-transform:uppercase;">Odds</th>
+          <th style="padding:9px 14px;text-align:left;color:#556;font-size:11px;text-transform:uppercase;">Edge</th>
+          <th style="padding:9px 14px;text-align:left;color:#556;font-size:11px;text-transform:uppercase;">Rating</th>
+        </tr>
+      </thead>
+      <tbody>{rows}</tbody>
+    </table>"""
+
+
+def game_results_table(picks: list[dict]) -> str:
+    if not picks:
+        return "<p style='color:#555;font-size:14px;margin:0;'>No graded game total picks from yesterday.</p>"
+
+    rows = ""
+    for p in picks:
+        color, label = _result_color(p["result"])
+        direction = "Over" if p["selection"].lower() == "over" else "Under"
+        rows += f"""
+        <tr>
+          <td style="padding:10px 14px;border-bottom:1px solid #1a2a3a;font-weight:600;color:#fff;font-size:14px;">
+            {p.get('away_team','?')} @ {p.get('home_team','?')}
+          </td>
+          <td style="padding:10px 14px;border-bottom:1px solid #1a2a3a;color:#fff;font-size:13px;">
+            {direction} {p['point']}
+          </td>
+          <td style="padding:10px 14px;border-bottom:1px solid #1a2a3a;color:#aaa;font-size:13px;">
+            {_fmt_odds(p['bovada_price'])}
+          </td>
+          <td style="padding:10px 14px;border-bottom:1px solid #1a2a3a;">
+            <span style="background:{color};color:#fff;padding:3px 10px;border-radius:4px;
+                         font-size:12px;font-weight:700;">{label}</span>
+          </td>
+        </tr>"""
+
+    return f"""
+    <table width="100%" cellpadding="0" cellspacing="0"
+           style="border-collapse:collapse;background:#0f1e2e;border-radius:8px;overflow:hidden;">
+      <thead>
+        <tr style="background:#0a1628;">
+          <th style="padding:9px 14px;text-align:left;color:#556;font-size:11px;text-transform:uppercase;">Matchup</th>
+          <th style="padding:9px 14px;text-align:left;color:#556;font-size:11px;text-transform:uppercase;">Pick</th>
+          <th style="padding:9px 14px;text-align:left;color:#556;font-size:11px;text-transform:uppercase;">Odds</th>
+          <th style="padding:9px 14px;text-align:left;color:#556;font-size:11px;text-transform:uppercase;">Result</th>
+        </tr>
+      </thead>
+      <tbody>{rows}</tbody>
+    </table>"""
+
+
 def record_bar(rec: dict) -> str:
     net_color  = "#00b894" if rec["net"] >= 0 else "#e74c3c"
     roi_color  = "#00b894" if rec["roi"] >= 0 else "#e74c3c"
@@ -227,9 +337,13 @@ def record_bar(rec: dict) -> str:
     </div>"""
 
 
-def build_html(today_picks, yesterday_picks, record, today, yesterday) -> str:
+def build_html(today_picks, yesterday_picks, record, today, yesterday,
+               today_game_picks=None, yesterday_game_results=None) -> str:
     today_label     = date.fromisoformat(today).strftime("%A, %B %d")
     yesterday_label = date.fromisoformat(yesterday).strftime("%A, %B %d")
+    today_game_picks        = today_game_picks or []
+    yesterday_game_results  = yesterday_game_results or []
+    total_today = len(today_picks) + len(today_game_picks)
 
     return f"""
     <html>
@@ -241,14 +355,16 @@ def build_html(today_picks, yesterday_picks, record, today, yesterday) -> str:
           MLB V2 &mdash; {today_label}
         </h1>
         <p style="color:#556;font-size:13px;margin:0;">
-          {len(today_picks)} pick{'s' if len(today_picks)!=1 else ''} today
+          {total_today} pick{'s' if total_today!=1 else ''} today
           &nbsp;·&nbsp; Pitcher Outs O / TB Under / P Hits Allowed U
           &nbsp;·&nbsp; -145 to -101 &nbsp;·&nbsp; Edge &ge;1%
         </p>
       </div>
 
-      {section(f"Today's Picks — {today_label}", picks_table(today_picks))}
-      {section(f"Yesterday's Results — {yesterday_label}", results_table(yesterday_picks))}
+      {section(f"Today's Player Props — {today_label}", picks_table(today_picks))}
+      {section(f"Today's Game Totals — {today_label}", game_picks_table(today_game_picks))}
+      {section(f"Yesterday's Prop Results — {yesterday_label}", results_table(yesterday_picks))}
+      {section(f"Yesterday's Game Total Results — {yesterday_label}", game_results_table(yesterday_game_results))}
       {section("Running Record (Live Picks Only)", record_bar(record))}
 
       <p style="color:#2a3a4a;font-size:11px;margin-top:24px;text-align:center;">
@@ -258,7 +374,8 @@ def build_html(today_picks, yesterday_picks, record, today, yesterday) -> str:
     </html>"""
 
 
-def send(today_picks, yesterday_picks, record, today, yesterday) -> None:
+def send(today_picks, yesterday_picks, record, today, yesterday,
+         today_game_picks=None, yesterday_game_results=None) -> None:
     email_from = os.getenv("EMAIL_FROM", "")
     email_pass = os.getenv("EMAIL_PASSWORD", "")
     email_to   = os.getenv("EMAIL_TO", email_from)
@@ -267,24 +384,41 @@ def send(today_picks, yesterday_picks, record, today, yesterday) -> None:
         print("  EMAIL_FROM / EMAIL_PASSWORD not set — skipping email")
         return
 
+    today_game_picks       = today_game_picks or []
+    yesterday_game_results = yesterday_game_results or []
     today_label = date.fromisoformat(today).strftime("%A, %B %d")
-    subject     = f"MLB Picks — {today_label} ({len(today_picks)} picks)"
+    total_today = len(today_picks) + len(today_game_picks)
+    subject     = f"MLB Picks — {today_label} ({total_today} picks)"
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"]    = email_from
     msg["To"]      = email_to
 
-    plain_lines = ["=== TODAY'S PICKS ==="]
+    plain_lines = ["=== TODAY'S PLAYER PROPS ==="]
     for p in today_picks:
         plain_lines.append(
             f"{p['player_name']} | {p['market_key']} | {p['selection']} {p['point']} | "
             f"{_fmt_odds(p['bovada_price'])} | {p['edge']*100:+.1f}% edge | {p['recommendation']}"
         )
-    plain_lines += ["", "=== YESTERDAY'S RESULTS ==="]
+    plain_lines += ["", "=== TODAY'S GAME TOTALS ==="]
+    for p in today_game_picks:
+        direction = "Over" if p["selection"].lower() == "over" else "Under"
+        plain_lines.append(
+            f"{p.get('away_team','?')} @ {p.get('home_team','?')} | {direction} {p['point']} | "
+            f"{_fmt_odds(p['bovada_price'])} | {p['edge']*100:+.1f}% edge | {p['recommendation']}"
+        )
+    plain_lines += ["", "=== YESTERDAY'S PROP RESULTS ==="]
     for p in yesterday_picks:
         plain_lines.append(
             f"{p['player_name']} | {p['selection']} {p['point']} | "
+            f"{_fmt_odds(p['bovada_price'])} | {p.get('result','PENDING')}"
+        )
+    plain_lines += ["", "=== YESTERDAY'S GAME TOTAL RESULTS ==="]
+    for p in yesterday_game_results:
+        direction = "Over" if p["selection"].lower() == "over" else "Under"
+        plain_lines.append(
+            f"{p.get('away_team','?')} @ {p.get('home_team','?')} | {direction} {p['point']} | "
             f"{_fmt_odds(p['bovada_price'])} | {p.get('result','PENDING')}"
         )
     plain_lines += [
@@ -295,7 +429,8 @@ def send(today_picks, yesterday_picks, record, today, yesterday) -> None:
 
     msg.attach(MIMEText("\n".join(plain_lines), "plain"))
     msg.attach(MIMEText(
-        build_html(today_picks, yesterday_picks, record, today, yesterday), "html"
+        build_html(today_picks, yesterday_picks, record, today, yesterday,
+                   today_game_picks, yesterday_game_results), "html"
     ))
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
@@ -311,13 +446,18 @@ def main() -> None:
     yesterday = (now - timedelta(days=1)).strftime("%Y-%m-%d")
 
     conn = get_conn()
-    today_picks     = get_today_picks(conn, today)
-    yesterday_picks = get_yesterday_results(conn, yesterday)
-    record          = get_running_record(conn)
+    today_picks            = get_today_picks(conn, today)
+    yesterday_picks        = get_yesterday_results(conn, yesterday)
+    today_game_picks       = get_today_game_picks(conn, today)
+    yesterday_game_results = get_yesterday_game_results(conn, yesterday)
+    record                 = get_running_record(conn)
     conn.close()
 
-    print(f"\n[Email] {len(today_picks)} picks today, {len(yesterday_picks)} graded yesterday")
-    send(today_picks, yesterday_picks, record, today, yesterday)
+    total_today = len(today_picks) + len(today_game_picks)
+    print(f"\n[Email] {total_today} picks today ({len(today_game_picks)} game totals), "
+          f"{len(yesterday_picks) + len(yesterday_game_results)} graded yesterday")
+    send(today_picks, yesterday_picks, record, today, yesterday,
+         today_game_picks, yesterday_game_results)
 
 
 if __name__ == "__main__":
