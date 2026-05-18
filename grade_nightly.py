@@ -40,15 +40,18 @@ def main() -> None:
     conn = get_conn()
     init_db(conn)
 
-    print(f"\nGrading player props for {yesterday}...")
-    graded = grade_pending_picks(conn, yesterday)
-    print(f"  Graded: {graded} picks")
+    total = 0
+    for date in (today, yesterday):
+        print(f"\nGrading player props for {date}...")
+        graded = grade_pending_picks(conn, date)
+        print(f"  Graded: {graded} picks")
 
-    print(f"\nGrading game totals for {yesterday}...")
-    game_graded = grade_pending_game_picks(conn, yesterday)
-    print(f"  Graded: {game_graded} game picks")
+        print(f"Grading game totals for {date}...")
+        game_graded = grade_pending_game_picks(conn, date)
+        print(f"  Graded: {game_graded} game picks")
+        total += graded + game_graded
 
-    print(f"\nDone. Total graded: {graded + game_graded}")
+    print(f"\nDone. Total graded: {total}")
     conn.close()
 
 
