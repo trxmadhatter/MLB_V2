@@ -390,8 +390,6 @@ def _render_today(conn, today: str) -> None:
 
         st.markdown("")
 
-    # Game totals section
-    _render_game_picks(conn, today, show_all, min_score)
 
 
 def _render_active_bets(conn) -> None:
@@ -587,13 +585,18 @@ def main() -> None:
 </div>
 """, unsafe_allow_html=True)
 
-    tab1, tab2, tab3 = st.tabs(["Today's Picks", "My Bets", "Results & Learning"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Today's Picks", "Game Markets", "My Bets", "Results & Learning"])
 
     with tab1:
         _render_today(conn, today)
     with tab2:
-        _render_active_bets(conn)
+        g_col_a, g_col_b = st.columns([2, 1.5])
+        g_show_all = g_col_a.checkbox("Show all evaluated game lines", value=False)
+        g_min_score = g_col_b.slider("Min signal score", 0, 90, 0, step=5, key="g_min_score")
+        _render_game_picks(conn, today, show_all=g_show_all, min_score=g_min_score)
     with tab3:
+        _render_active_bets(conn)
+    with tab4:
         _render_learning(conn)
 
     conn.close()
