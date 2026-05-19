@@ -6,10 +6,13 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
+import logging
+
 from config import SIGNAL_WEIGHTS, SIGNAL_WEIGHTS_DEFAULT, SCORE_RECOMMENDED, SCORE_LEAN
 from signals.parks import get_park
 from signals.weather import get_weather
-from signals.umpires import get_ump_k_tendency
+
+_log = logging.getLogger(__name__)
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -91,6 +94,9 @@ def _season_rate_signal(rate: float | None, benchmark: float,
     """Generic: how does season rate compare to a benchmark?"""
     if rate is None:
         return 0.5
+    if spread == 0:
+        raw = 1.0 if rate > benchmark else (0.0 if rate < benchmark else 0.5)
+        return raw if selection == "Over" else 1.0 - raw
     normalized = _clamp(0.5 + (rate - benchmark) / (2 * spread))
     return normalized if selection == "Over" else 1.0 - normalized
 
@@ -123,9 +129,12 @@ def _score_pitcher_strikeouts(
     weather: dict,
     game_info: dict | None,
     season: int,
+    opp_team: str | None = None,
 ) -> list[dict]:
     from stats import fetch_pitcher_stats, fetch_team_hitting
     from signals.splits import get_pitcher_splits
+    from signals.statcast import get_pitcher_statcast
+    from signals.fangraphs import get_pitcher_fangraphs
 
     weights = SIGNAL_WEIGHTS["pitcher_strikeouts"]
     breakdown = []
@@ -135,23 +144,18 @@ def _score_pitcher_strikeouts(
         breakdown.append({"signal": signal, "raw": round(raw, 3),
                           "pts": pts, "max": weights.get(signal, 0), "note": note})
 
-    # edge
     add("edge", _edge_signal(edge), f"edge={edge:.1%}")
 
-    # park K factor
     kf = park.get("k_factor", 100)
     add("park_k_factor", _park_factor_signal(kf, selection), f"k_factor={kf}")
 
-    # umpire
     ump_k = game_info.get("ump_k_tendency", 0.0) if game_info else 0.0
     ump_name = game_info.get("umpire_name", "unknown") if game_info else "unknown"
     add("ump_k_tendency", _ump_signal(ump_k, selection), f"ump={ump_name} ({ump_k:+.1f})")
 
-    # weather
     add("weather", _weather_signal(weather, selection),
         f"wind={weather.get('wind_speed_kph', 0):.0f}kph tf={weather.get('tailwind_factor', 0.5):.2f}")
 
-    # player stats
     if player_id:
         stats = fetch_pitcher_stats(player_id, season) or {}
         recent_k = stats.get("recent_k")
@@ -159,35 +163,42 @@ def _score_pitcher_strikeouts(
             f"recent_k={recent_k}")
 
         k9 = stats.get("season_k9")
-        # For K Over: K/9 >= 9 is good -> benchmark 8.0
         add("season_k_pct", _season_rate_signal(k9, 8.0, selection, spread=1.5),
             f"k9={k9}")
 
-        # opp team K% from team hitting stats
-        opp_team = (game_info.get("away_team") if game_info else None)
         if opp_team:
             team = fetch_team_hitting(opp_team, season) or {}
             k_pct = team.get("k_pct")
-            # league avg ~22.8%, spread of 5%
             add("opp_team_k_pct", _season_rate_signal(k_pct, 0.228, selection, 0.05),
                 f"opp_k_pct={k_pct:.1%}" if k_pct else "opp_k_pct=None")
         else:
             add("opp_team_k_pct", 0.5, "opp_team unavailable")
 
-        # platoon
         splits = get_pitcher_splits(player_id, season)
         k9_vl = splits.get("k9_vs_lhh")
         k9_vr = splits.get("k9_vs_rhh")
         if k9_vl and k9_vr:
-            # Over: use higher K/9 split (best case); Under: use lower (worst case)
             k9_used = max(k9_vl, k9_vr) if selection == "Over" else min(k9_vl, k9_vr)
             add("platoon_alignment",
                 _season_rate_signal(k9_used, 8.0, selection, 1.5),
                 f"k9_vL={k9_vl} k9_vR={k9_vr} used={k9_used:.1f}")
         else:
             add("platoon_alignment", 0.5, "splits unavailable")
+
+        # Statcast: whiff% — benchmark 25%, spread 5 pct-points (CSV delivers as float e.g. 28.5)
+        sc = get_pitcher_statcast(player_id, season)
+        whiff = sc.get("whiff_pct")
+        add("whiff_pct", _season_rate_signal(whiff, 25.0, selection, 5.0),
+            f"whiff_pct={whiff}")
+
+        # FanGraphs: Stuff+ — 100 is avg, spread 15
+        fg = get_pitcher_fangraphs(player_id, season)
+        stuff = fg.get("stuff_plus")
+        add("stuff_plus", _season_rate_signal(stuff, 100.0, selection, 15.0),
+            f"stuff_plus={stuff}")
     else:
-        for sig in ("recent_k_rate", "season_k_pct", "opp_team_k_pct", "platoon_alignment"):
+        for sig in ("recent_k_rate", "season_k_pct", "opp_team_k_pct",
+                    "platoon_alignment", "whiff_pct", "stuff_plus"):
             add(sig, 0.5, "player_id unavailable")
 
     return breakdown
@@ -202,9 +213,11 @@ def _score_pitcher_hits_allowed(
     weather: dict,
     game_info: dict | None,
     season: int,
+    opp_team: str | None = None,
 ) -> list[dict]:
     from stats import fetch_pitcher_stats, fetch_team_hitting
     from signals.splits import get_pitcher_splits
+    from signals.statcast import get_pitcher_statcast
 
     weights = SIGNAL_WEIGHTS["pitcher_hits_allowed"]
     breakdown = []
@@ -229,33 +242,41 @@ def _score_pitcher_hits_allowed(
             f"recent_h={recent_h}")
 
         whip = stats.get("season_whip")
-        # WHIP: 1.0 is excellent (fewer hits), 1.5 is poor. For Under: low WHIP is good.
         add("season_whip", _season_rate_signal(whip, 1.25, selection, 0.15),
             f"whip={whip}")
 
-        opp_team = (game_info.get("away_team") if game_info else None)
         if opp_team:
             team = fetch_team_hitting(opp_team, season) or {}
             team_avg = team.get("avg")
-            # League avg ~.244. Higher BA = more hits against pitcher.
-            add("opp_team_woba", _season_rate_signal(team_avg, 0.244, selection, 0.015),
+            add("opp_team_avg", _season_rate_signal(team_avg, 0.244, selection, 0.015),
                 f"opp_avg={team_avg:.3f}" if team_avg else "opp_avg=None")
         else:
-            add("opp_team_woba", 0.5, "opp_team unavailable")
+            add("opp_team_avg", 0.5, "opp_team unavailable")
 
         splits = get_pitcher_splits(player_id, season)
         h9_vl = splits.get("h9_vs_lhh")
         h9_vr = splits.get("h9_vs_rhh")
         if h9_vl and h9_vr:
-            # Under: use lower H/9 (pitcher better vs that side); Over: higher H/9
             h9_used = min(h9_vl, h9_vr) if selection == "Under" else max(h9_vl, h9_vr)
             add("platoon_alignment",
                 _season_rate_signal(h9_used, 9.0, selection, 1.5),
                 f"h9_vL={h9_vl} h9_vR={h9_vr} used={h9_used:.1f}")
         else:
             add("platoon_alignment", 0.5, "splits unavailable")
+
+        # Statcast: hard_hit% allowed (benchmark 37%, spread 4 pct-points; higher = more hits)
+        sc = get_pitcher_statcast(player_id, season)
+        hard_hit = sc.get("hard_hit_pct")
+        add("hard_hit_pct", _season_rate_signal(hard_hit, 37.0, selection, 4.0),
+            f"hard_hit_pct={hard_hit}")
+
+        # Statcast: barrel% allowed (benchmark 8%, spread 2 pct-points; higher = more XBH)
+        barrel = sc.get("barrel_pct")
+        add("barrel_pct", _season_rate_signal(barrel, 8.0, selection, 2.0),
+            f"barrel_pct={barrel}")
     else:
-        for sig in ("recent_h9", "season_whip", "opp_team_woba", "platoon_alignment"):
+        for sig in ("recent_h9", "season_whip", "opp_team_avg",
+                    "platoon_alignment", "hard_hit_pct", "barrel_pct"):
             add(sig, 0.5, "player_id unavailable")
 
     return breakdown
@@ -270,8 +291,10 @@ def _score_pitcher_outs(
     weather: dict,
     game_info: dict | None,
     season: int,
+    opp_team: str | None = None,
 ) -> list[dict]:
     from stats import fetch_pitcher_stats, fetch_team_hitting
+    from signals.fangraphs import get_pitcher_fangraphs
 
     weights = SIGNAL_WEIGHTS["pitcher_outs"]
     breakdown = []
@@ -283,7 +306,7 @@ def _score_pitcher_outs(
 
     add("edge", _edge_signal(edge), f"edge={edge:.1%}")
 
-    rf = park.get("hr_factor", 100)  # high HR park = shorter outings
+    rf = park.get("hr_factor", 100)
     add("park_run_factor", _park_factor_signal(rf, "Under" if selection == "Over" else "Over"),
         f"hr_factor={rf}")
 
@@ -300,17 +323,29 @@ def _score_pitcher_outs(
         add("season_ip", _recent_rate_signal(season_ip, point / 3.0, selection, 0.5),
             f"season_ip_per_start={season_ip}")
 
-        opp_team = (game_info.get("away_team") if game_info else None)
         if opp_team:
             team = fetch_team_hitting(opp_team, season) or {}
             ops = team.get("ops")
-            # High OPS = dangerous lineup = shorter pitcher outing = bad for Outs Over
             add("opp_lineup_ops", _season_rate_signal(ops, 0.720, "Under" if selection == "Over" else "Over", 0.04),
                 f"opp_ops={ops:.3f}" if ops else "opp_ops=None")
         else:
             add("opp_lineup_ops", 0.5, "opp_team unavailable")
+
+        # FanGraphs: xFIP — lower = better pitcher = more outs (benchmark 4.2, spread 0.6)
+        # Invert: for Outs Over, low xFIP is good -> use "Under" direction in rate signal
+        fg = get_pitcher_fangraphs(player_id, season)
+        xfip = fg.get("xfip")
+        flip_sel = "Under" if selection == "Over" else "Over"
+        add("xfip", _season_rate_signal(xfip, 4.2, flip_sel, 0.6),
+            f"xfip={xfip}")
+
+        # FanGraphs: SwStr% — decimal (e.g. 0.112); benchmark 0.112, spread 0.02
+        # High SwStr% = misses bats efficiently = longer outings
+        swstr = fg.get("swstr_pct")
+        add("swstr_pct", _season_rate_signal(swstr, 0.112, selection, 0.02),
+            f"swstr_pct={swstr}")
     else:
-        for sig in ("recent_ip", "season_ip", "opp_lineup_ops"):
+        for sig in ("recent_ip", "season_ip", "opp_lineup_ops", "xfip", "swstr_pct"):
             add(sig, 0.5, "player_id unavailable")
 
     return breakdown
@@ -332,6 +367,7 @@ def _score_batter(
 ) -> list[dict]:
     from stats import fetch_batter_stats
     from signals.splits import get_batter_splits
+    from signals.statcast import get_batter_statcast
 
     is_tb = market_key == "batter_total_bases"
     weights = SIGNAL_WEIGHTS.get(market_key, SIGNAL_WEIGHTS_DEFAULT)
@@ -344,27 +380,22 @@ def _score_batter(
 
     add("edge", _edge_signal(edge), f"edge={edge:.1%}")
 
-    # park factor
     pf = park.get("tb_factor" if is_tb else "hits_factor", 100)
     add("park_tb_factor" if is_tb else "park_hits_factor",
         _park_factor_signal(pf, selection), f"park_factor={pf}")
 
-    # weather
     add("weather_wind" if is_tb else "weather",
         _weather_signal(weather, selection),
         f"tailwind={weather.get('tailwind_factor', 0.5):.2f}")
 
-    # SP quality — find the opposing SP (batter on home team faces away SP, and vice versa)
     sp = None
     if game_info:
         pt = (player_team or "").lower()
         ht = home_team.lower()
         if pt and (pt in ht or ht in pt):
-            # batter is on home team -> faces away SP
-            sp = game_info.get("away_sp") or game_info.get("home_sp")
+            sp = game_info.get("away_sp")   # batter on home team faces away SP
         else:
-            # batter is on away team (or unknown) -> faces home SP
-            sp = game_info.get("home_sp") or game_info.get("away_sp")
+            sp = game_info.get("home_sp")   # batter on away team faces home SP
     if sp and sp.get("era") is not None:
         add("sp_quality", _era_signal(sp["era"], selection),
             f"sp={sp.get('name','?')} ERA={sp['era']:.2f}")
@@ -381,12 +412,11 @@ def _score_batter(
 
         season_key = "season_slg" if is_tb else "season_avg"
         rate = stats.get(season_key)
-        benchmark = 0.420 if is_tb else 0.255  # approx league avg SLG / BA
+        benchmark = 0.420 if is_tb else 0.255
         add("season_slg" if is_tb else "season_avg",
             _season_rate_signal(rate, benchmark, selection, 0.06 if is_tb else 0.03),
             f"{season_key}={rate}")
 
-        # platoon splits
         splits = get_batter_splits(player_id, season)
         sp_hand = sp.get("hand") if sp else None
         if sp_hand in ("L", "R"):
@@ -398,10 +428,35 @@ def _score_batter(
                 f"slg_vs_{sp_hand}={s1} vs_opp={s2}")
         else:
             add("platoon_alignment", 0.5, "SP hand unknown")
+
+        # Statcast contact quality signals
+        sc = get_batter_statcast(player_id, season)
+
+        # xwOBA: benchmark .320 (league avg), spread 0.040
+        xwoba = sc.get("xwoba")
+        add("xwoba", _season_rate_signal(xwoba, 0.320, selection, 0.040),
+            f"xwoba={xwoba}")
+
+        if is_tb:
+            # Barrel% strongly predicts extra-base hits (benchmark 7.5%, spread 3 pct-points)
+            barrel = sc.get("barrel_pct")
+            add("barrel_pct", _season_rate_signal(barrel, 7.5, selection, 3.0),
+                f"barrel_pct={barrel}")
+
+        # Hard hit% (benchmark 38%, spread 5 pct-points)
+        hard_hit = sc.get("hard_hit_pct")
+        add("hard_hit_pct", _season_rate_signal(hard_hit, 38.0, selection, 5.0),
+            f"hard_hit_pct={hard_hit}")
     else:
-        for sig in ("recent_tb", "recent_h", "season_slg", "season_avg", "platoon_alignment"):
-            if sig in weights:
-                add(sig, 0.5, "player_id unavailable")
+        # Emit market-specific fallbacks explicitly to avoid weight gaps (H-01)
+        base_sigs = [
+            "recent_tb" if is_tb else "recent_h",
+            "season_slg" if is_tb else "season_avg",
+            "platoon_alignment",
+        ]
+        statcast_sigs = ["xwoba", "hard_hit_pct"] + (["barrel_pct"] if is_tb else [])
+        for sig in base_sigs + statcast_sigs:
+            add(sig, 0.5, "player_id unavailable")
 
     return breakdown
 
@@ -448,19 +503,32 @@ def score_pick(
         if info:
             player_id = info["id"]
             player_team = info.get("team_name", "")
-    except Exception:
-        pass
+    except Exception as exc:
+        _log.warning("player lookup failed for %r (season=%s): %s", player_name, season, exc)
+
+    # Determine opposing team for pitcher signals (pitcher's opponents, not their own team)
+    opp_team: str | None = None
+    if game_info:
+        pt = (player_team or "").lower()
+        ht = home_team.lower()
+        if pt and (pt in ht or ht in pt):
+            opp_team = game_info.get("away_team")   # pitcher on home team, faces away lineup
+        else:
+            opp_team = game_info.get("home_team")   # pitcher on away team, faces home lineup
 
     try:
         if market_key == "pitcher_strikeouts":
             breakdown = _score_pitcher_strikeouts(
-                player_id, selection, point, edge, park, weather_data, game_info, season)
+                player_id, selection, point, edge, park, weather_data, game_info, season,
+                opp_team=opp_team)
         elif market_key == "pitcher_hits_allowed":
             breakdown = _score_pitcher_hits_allowed(
-                player_id, selection, point, edge, park, weather_data, game_info, season)
+                player_id, selection, point, edge, park, weather_data, game_info, season,
+                opp_team=opp_team)
         elif market_key == "pitcher_outs":
             breakdown = _score_pitcher_outs(
-                player_id, selection, point, edge, park, weather_data, game_info, season)
+                player_id, selection, point, edge, park, weather_data, game_info, season,
+                opp_team=opp_team)
         elif market_key in ("batter_total_bases", "batter_hits"):
             breakdown = _score_batter(
                 player_id, market_key, selection, point, edge,

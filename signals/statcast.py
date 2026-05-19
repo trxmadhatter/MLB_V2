@@ -1,0 +1,110 @@
+"""
+Baseball Savant / Statcast leaderboard data (free, no auth).
+Fetches season-level metrics for pitchers and batters keyed by MLBAM player_id.
+Cache is per-process and season-keyed; call reset_cache() in tests only.
+"""
+from __future__ import annotations
+import csv
+import io
+import logging
+import requests
+
+_BASE    = "https://baseballsavant.mlb.com"
+_TIMEOUT = 20
+_log     = logging.getLogger(__name__)
+
+# season -> {player_id -> metrics}
+_pitcher_cache: dict[int, dict[int, dict]] = {}
+_batter_cache:  dict[int, dict[int, dict]] = {}
+
+
+def _f(v) -> float | None:
+    try:
+        return float(str(v).strip('"').strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def _load_pitchers(season: int) -> dict[int, dict]:
+    if season in _pitcher_cache:
+        return _pitcher_cache[season]
+    result: dict[int, dict] = {}
+    try:
+        resp = requests.get(
+            f"{_BASE}/leaderboard/custom",
+            params={
+                "year": season, "type": "pitcher", "filter": "",
+                "selections": "whiff_percent,barrel_batted_rate,hard_hit_percent",
+                "minResults": 0, "minGroupSwing": 0, "csv": "true",
+            },
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=_TIMEOUT,
+        )
+        resp.raise_for_status()
+        reader = csv.DictReader(io.StringIO(resp.content.decode("utf-8-sig")))
+        for row in reader:
+            pid = row.get("player_id")
+            if not pid:
+                continue
+            try:
+                result[int(pid)] = {
+                    "whiff_pct":    _f(row.get("whiff_percent")),
+                    "barrel_pct":   _f(row.get("barrel_batted_rate")),
+                    "hard_hit_pct": _f(row.get("hard_hit_percent")),
+                }
+            except (ValueError, TypeError):
+                pass
+        _pitcher_cache[season] = result   # only cached on successful fetch
+    except Exception as exc:
+        _log.warning("Failed to load pitcher Statcast data for season %s: %s", season, exc)
+    return _pitcher_cache.get(season, {})
+
+
+def _load_batters(season: int) -> dict[int, dict]:
+    if season in _batter_cache:
+        return _batter_cache[season]
+    result: dict[int, dict] = {}
+    try:
+        resp = requests.get(
+            f"{_BASE}/leaderboard/custom",
+            params={
+                "year": season, "type": "batter", "filter": "",
+                "selections": "xwoba,barrel_batted_rate,hard_hit_percent",
+                "minResults": 0, "minGroupSwing": 0, "csv": "true",
+            },
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=_TIMEOUT,
+        )
+        resp.raise_for_status()
+        reader = csv.DictReader(io.StringIO(resp.content.decode("utf-8-sig")))
+        for row in reader:
+            pid = row.get("player_id")
+            if not pid:
+                continue
+            try:
+                result[int(pid)] = {
+                    "xwoba":        _f(row.get("xwoba")),
+                    "barrel_pct":   _f(row.get("barrel_batted_rate")),
+                    "hard_hit_pct": _f(row.get("hard_hit_percent")),
+                }
+            except (ValueError, TypeError):
+                pass
+        _batter_cache[season] = result    # only cached on successful fetch
+    except Exception as exc:
+        _log.warning("Failed to load batter Statcast data for season %s: %s", season, exc)
+    return _batter_cache.get(season, {})
+
+
+def get_pitcher_statcast(player_id: int, season: int) -> dict:
+    """Return Statcast metrics for a pitcher, or {} if unavailable."""
+    return _load_pitchers(season).get(player_id, {})
+
+
+def get_batter_statcast(player_id: int, season: int) -> dict:
+    """Return Statcast metrics for a batter, or {} if unavailable."""
+    return _load_batters(season).get(player_id, {})
+
+
+def reset_cache() -> None:
+    _pitcher_cache.clear()
+    _batter_cache.clear()

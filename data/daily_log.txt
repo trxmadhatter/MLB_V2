@@ -87,3 +87,465 @@ MLB V2 Daily Run - 2026-05-15
 
 [Email] 23 picks today, 1 graded yesterday
   Email sent to xjayray@gmail.com
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+
+==================================================
+MLB V2 Daily Run - 2026-05-16
+==================================================
+
+[1/4] Pre-fetching game data from MLB Stats API...
+  15 games found for today
+
+[2/4] Pulling props from The Odds API...
+  Fetching event list...
+  quota — used: 18542  remaining: 81458
+  Found 15 events today
+  Pulling odds: Toronto Blue Jays @ Detroit Tigers
+  quota — used: 18547  remaining: 81453
+  Pulling odds: Kansas City Royals @ St. Louis Cardinals
+  quota — used: 18552  remaining: 81448
+  Pulling odds: Arizona Diamondbacks @ Colorado Rockies
+  quota — used: 18557  remaining: 81443
+  Pulling odds: Baltimore Orioles @ Washington Nationals
+  quota — used: 18562  remaining: 81438
+  Pulling odds: Philadelphia Phillies @ Pittsburgh Pirates
+  quota — used: 18567  remaining: 81433
+  Pulling odds: Miami Marlins @ Tampa Bay Rays
+  quota — used: 18572  remaining: 81428
+  Pulling odds: Cincinnati Reds @ Cleveland Guardians
+  quota — used: 18575  remaining: 81425
+  Pulling odds: Chicago Cubs @ Chicago White Sox
+  quota — used: 18580  remaining: 81420
+  Pulling odds: Texas Rangers @ Houston Astros
+  quota — used: 18585  remaining: 81415
+  Pulling odds: Milwaukee Brewers @ Minnesota Twins
+  quota — used: 18590  remaining: 81410
+  Pulling odds: Boston Red Sox @ Atlanta Braves
+  quota — used: 18595  remaining: 81405
+  Pulling odds: New York Yankees @ New York Mets
+  quota — used: 18600  remaining: 81400
+  Pulling odds: San Diego Padres @ Seattle Mariners
+  quota — used: 18605  remaining: 81395
+  Pulling odds: Los Angeles Dodgers @ Los Angeles Angels
+  quota — used: 18610  remaining: 81390
+  Pulling odds: San Francisco Giants @ Athletics
+  quota — used: 18615  remaining: 81385
+  Stored 7523 snapshot rows  (pulled_at=2026-05-16T12:30:09Z)
+
+[3/4] Computing consensus, edge, and signal scores...
+  Evaluated: 322  |  Structural no-bets logged: 40
+  CSV: C:\Users\jesse\MLB_V2\data\picks\picks_2026-05-16.csv
+
+[4/4] Grading picks for 2026-05-15...
+  Fetching MLB results for 2026-05-15...
+  Got 2841 player stat lines
+  Graded: 0 picks
+
+--------------------------------------------------
+  Today's picks (2026-05-16):
+  Evaluated: 322  |  NO_BET: 260  LEAN: 57  RECOMMENDED: 5
+
+==============================================================================
+  BOVADA BETS — 2026-05-16  (40 sim-confirmed)
+==============================================================================
+  PLAYER                 TEAM MKT  S     LINE   BOVADA    EDGE   SIM%   BEV%  TIER
+  ------------------------------------------------------------------------------------
+** Steven Kwan            CLE  BTB  Under  1.5     -150   +1.8%    80%    60%  RECOMMENDED
+** Chandler Simpson       TB   BTB  Under  1.5     -145   +1.4%    70%    59%  RECOMMENDED
+ > Tyler O'Neill          BAL  BTB  Under  1.5     -165   +1.1%    92%    62%  LEAN
+ > Jeremiah Jackson       BAL  BTB  Under  1.5     -170   +0.8%    88%    63%  LEAN
+ > Ezequiel Tovar         COL  BTB  Under  1.5     -160   +0.3%    88%    62%  LEAN
+ > Yohel Pozo             STL  BTB  Under  1.5     -200   +0.6%    84%    67%  LEAN
+ > Brenton Doyle          COL  BTB  Under  1.5     -135   +0.8%    83%    57%  LEAN
+ > Jo Adell               LAA  BTB  Under  1.5     -135   +2.4%    80%    57%  LEAN
+ > Luis Rengifo           MIL  BTB  Under  1.5     -190   +0.3%    80%    66%  LEAN
+ > Jesus Rodriguez        SF   BTB  Under  1.5     -200   +1.0%    77%    67%  LEAN
+ > Josh Bell              MIN  BTB  Under  1.5     -180   +0.5%    77%    64%  LEAN
+ > Salvador Perez         KC   BTB  Under  1.5     -145   +1.3%    76%    59%  LEAN
+ > Will Smith             LAD  BTB  Under  1.5     -185   +0.0%    76%    65%  LEAN
+ > Willy Adames           SF   BTB  Under  1.5     -145   +1.3%    75%    59%  LEAN
+ > Brendan Donovan        SEA  BTB  Under  1.5     -180   +0.5%    75%    64%  LEAN
+ > Oswald Peraza          LAA  BTB  Under  1.5     -210   +0.0%    75%    68%  LEAN
+ > Luis Garcia Jr.        WSH  BTB  Under  1.5     -115   +2.1%    72%    53%  LEAN
+ > Trea Turner            PHI  BTB  Under  1.5     -120   +2.0%    72%    55%  LEAN
+ > Moisés Ballesteros     CHC  BTB  Under  1.5     -190   +0.7%    72%    66%  LEAN
+ > Jose Altuve            HOU  BTB  Under  1.5     -180   +0.9%    69%    64%  LEAN
+ > George Springer        TOR  BTB  Under  1.5     -145   +0.0%    69%    59%  LEAN
+ > Mookie Betts           LAD  BTB  Under  1.5     -160   +1.8%    68%    62%  LEAN
+ > Andrew Vaughn          MIL  BTB  Under  1.5     -150   +0.9%    68%    60%  LEAN
+ > Ryan Waldschmidt       ARI  BTB  Under  1.5     -150   +1.6%    67%    60%  LEAN
+ > Gabriel Moreno         ARI  BTB  Under  1.5     -130   +0.4%    67%    57%  LEAN
+ > Mark Vientos           NYM  BTB  Under  1.5     -170   +1.3%    65%    63%  LEAN
+ > Julio Rodriguez        SF   BTB  Under  1.5     -160   +0.5%    64%    62%  LEAN
+ > Gunnar Henderson       BAL  BTB  Under  1.5     -120   +0.3%    64%    55%  LEAN
+ > Jung Hoo Lee           SF   BTB  Under  1.5     -115   +1.6%    63%    53%  LEAN
+ > Vaughn Grissom         LAA  BTB  Under  1.5     -160   +0.6%    63%    62%  LEAN
+ > Adrian Del Castillo    ARI  BTB  Under  1.5     -145   +0.6%    63%    59%  LEAN
+ > Luis Severino          OAK  PKO  Over   4.5     -135   +2.1%    62%    57%  LEAN
+ > J.T. Realmuto          PHI  BTB  Under  1.5     -160   +1.5%    62%    62%  LEAN
+ > Ildemaro Vargas        ARI  BTB  Under  1.5     -115   +2.1%    61%    53%  LEAN
+ > Kyle Leahy             STL  PKO  Over   3.5     -135   +1.5%    59%    57%  LEAN
+ > Brent Rooker           OAK  BTB  Under  1.5     -135   +2.8%    58%    57%  LEAN
+ > Lourdes Gurriel Jr.    ARI  BTB  Under  1.5     -110   +1.4%    58%    52%  LEAN
+ > Walker Buehler         SD   PHA  Under  4.5     +120   +1.9%    55%    45%  LEAN
+ > Luis Arraez            SF   BTB  Under  1.5     -115   +0.8%    54%    53%  LEAN
+ > Nolan Arenado          ARI  BTB  Under  1.5     -105   +2.3%    52%    51%  LEAN
+
+  (22 LEAN/RECOMMENDED picks rejected by simulation or no data)
+
+
+[Email] 62 picks today, 27 graded yesterday
+  Email sent to xjayray@gmail.com
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+
+==================================================
+MLB V2 Daily Run - 2026-05-17
+==================================================
+
+[1/4] Pre-fetching game data from MLB Stats API...
+  15 games found for today
+
+[2/4] Pulling props from The Odds API...
+  Fetching event list...
+  quota — used: 19241  remaining: 80759
+  Found 15 events today
+  Pulling odds: Miami Marlins @ Tampa Bay Rays
+  quota — used: 19246  remaining: 80754
+  Pulling odds: Boston Red Sox @ Atlanta Braves
+  quota — used: 19251  remaining: 80749
+  Pulling odds: Baltimore Orioles @ Washington Nationals
+  quota — used: 19256  remaining: 80744
+  Pulling odds: Philadelphia Phillies @ Pittsburgh Pirates
+  quota — used: 19261  remaining: 80739
+  Pulling odds: Cincinnati Reds @ Cleveland Guardians
+  quota — used: 19266  remaining: 80734
+  Pulling odds: Toronto Blue Jays @ Detroit Tigers
+  quota — used: 19271  remaining: 80729
+  Pulling odds: New York Yankees @ New York Mets
+  quota — used: 19276  remaining: 80724
+  Pulling odds: Chicago Cubs @ Chicago White Sox
+  quota — used: 19281  remaining: 80719
+  Pulling odds: Texas Rangers @ Houston Astros
+  quota — used: 19286  remaining: 80714
+  Pulling odds: Milwaukee Brewers @ Minnesota Twins
+  quota — used: 19291  remaining: 80709
+  Pulling odds: Kansas City Royals @ St. Louis Cardinals
+  quota — used: 19296  remaining: 80704
+  Pulling odds: Arizona Diamondbacks @ Colorado Rockies
+  quota — used: 19301  remaining: 80699
+  Pulling odds: San Francisco Giants @ Athletics
+  quota — used: 19306  remaining: 80694
+  Pulling odds: Los Angeles Dodgers @ Los Angeles Angels
+  quota — used: 19311  remaining: 80689
+  Pulling odds: San Diego Padres @ Seattle Mariners
+  quota — used: 19316  remaining: 80684
+  Stored 7983 snapshot rows  (pulled_at=2026-05-17T15:37:24Z)
+
+[3/4] Computing consensus, edge, and signal scores...
+  Evaluated: 312  |  Structural no-bets logged: 52
+  CSV: C:\Users\jesse\MLB_V2\data\picks\picks_2026-05-17.csv
+
+[4/4] Grading picks for 2026-05-16...
+  Fetching MLB results for 2026-05-16...
+  Got 2796 player stat lines
+  Graded: 0 picks
+
+--------------------------------------------------
+  Today's picks (2026-05-17):
+  Evaluated: 314  |  NO_BET: 290  LEAN: 21  RECOMMENDED: 3
+
+==============================================================================
+  BOVADA BETS — 2026-05-17  (15 sim-confirmed)
+==============================================================================
+  PLAYER                 TEAM MKT  S     LINE   BOVADA    EDGE   SIM%   BEV%  TIER
+  ------------------------------------------------------------------------------------
+** Trea Turner            PHI  BTB  Under  1.5     -150   +2.9%    71%    60%  RECOMMENDED
+** Jung Hoo Lee           SF   BTB  Under  1.5     -145   +2.2%    61%    59%  RECOMMENDED
+ > Julio Rodriguez        SF   BTB  Under  1.5     -135   +0.8%    82%    57%  LEAN
+ > Tyler O'Neill          BAL  BTB  Under  1.5     -145   +0.6%    81%    59%  LEAN
+ > Salvador Perez         KC   BTB  Under  1.5     -135   +1.6%    72%    57%  LEAN
+ > William Contreras      MIL  BTB  Under  1.5     -150   +1.0%    72%    60%  LEAN
+ > Nico Hoerner           CHC  BTB  Under  1.5     -135   +1.8%    68%    57%  LEAN
+ > Brent Rooker           OAK  BTB  Under  1.5     -130   +2.1%    67%    57%  LEAN
+ > Adley Rutschman        BAL  BTB  Under  1.5     -130   +2.2%    64%    57%  LEAN
+ > Peter Lambert          HOU  PKO  Over   4.5     -145   +0.5%    64%    59%  LEAN
+ > Nathan Eovaldi         TEX  PKO  Over   5.5     -135   +1.2%    63%    57%  LEAN
+ > Michael Busch          CHC  BTB  Under  1.5     -145   +0.7%    62%    59%  LEAN
+ > Gunnar Henderson       BAL  BTB  Under  1.5     -110   +0.2%    60%    52%  LEAN
+ > Jack Flaherty          DET  PHA  Under  4.5     +115   +2.3%    51%    47%  LEAN
+ > Freddy Peralta         NYM  PKO  Over   6.5     +110   +1.9%    48%    48%  LEAN
+
+  (9 LEAN/RECOMMENDED picks rejected by simulation or no data)
+
+
+[Email] 24 picks today, 62 graded yesterday
+  Email sent to xjayray@gmail.com
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+^CFailed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+^CFailed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+Failed to load pitcher FanGraphs data for season 2026: 403 Client Error: Forbidden for url: https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&lg=all&qual=10&season=2026&type=8&startSeason=2026&endSeason=2026&month=0&pageitems=2000&pagenum=1
+
+==================================================
+MLB V2 Daily Run - 2026-05-18
+==================================================
+
+[1/4] Pre-fetching game data from MLB Stats API...
+  14 games found for today
+
+[2/4] Pulling props from The Odds API...
+  Fetching event list...
+  quota — used: 82177  remaining: 17823
+  Found 14 events today
+  Pulling odds: Atlanta Braves @ Miami Marlins
+  quota — used: 82183  remaining: 17817
+  Pulling odds: Baltimore Orioles @ Tampa Bay Rays
+  quota — used: 82189  remaining: 17811
+  Pulling odds: Cincinnati Reds @ Philadelphia Phillies
+  quota — used: 82195  remaining: 17805
+  Pulling odds: Cleveland Guardians @ Detroit Tigers
+  quota — used: 82201  remaining: 17799
+  Pulling odds: New York Mets @ Washington Nationals
+  quota — used: 82207  remaining: 17793
+  Pulling odds: Toronto Blue Jays @ New York Yankees
+  quota — used: 82213  remaining: 17787
+  Pulling odds: Boston Red Sox @ Kansas City Royals
+  quota — used: 82219  remaining: 17781
+  Pulling odds: Milwaukee Brewers @ Chicago Cubs
+  quota — used: 82225  remaining: 17775
+  Pulling odds: Houston Astros @ Minnesota Twins
+  quota — used: 82231  remaining: 17769
+  Pulling odds: Texas Rangers @ Colorado Rockies
+  quota — used: 82237  remaining: 17763
+  Pulling odds: Athletics @ Los Angeles Angels
+  quota — used: 82243  remaining: 17757
+  Pulling odds: San Francisco Giants @ Arizona Diamondbacks
+  quota — used: 82249  remaining: 17751
+  Pulling odds: Chicago White Sox @ Seattle Mariners
+  quota — used: 82255  remaining: 17745
+  Pulling odds: Los Angeles Dodgers @ San Diego Padres
+  quota — used: 82261  remaining: 17739
+  Stored 7476 snapshot rows  (pulled_at=2026-05-18T16:00:09Z)
+
+[3/4] Computing consensus, edge, and signal scores...
+  Evaluated: 264  |  Structural no-bets logged: 118
+  CSV: C:\Users\jesse\MLB_V2\data\picks\picks_2026-05-18.csv
+
+[3b] Scoring game totals...
+  Game lines evaluated: 28
+
+[4/4] Grading picks for 2026-05-17...
+  Fetching MLB results for 2026-05-17...
+  Got 2796 player stat lines
+  Graded: 0 picks
+
+[4b] Grading game picks for 2026-05-17...
+  Fetching game scores for 2026-05-17...
+  Got 15 final game scores
+  Graded: 0 game picks
+
+--------------------------------------------------
+  Today's picks (2026-05-18):
+  Evaluated: 336  |  NO_BET: 333  LEAN: 2  RECOMMENDED: 1
+
+==============================================================================
+  BOVADA BETS — 2026-05-18  (3 sim-confirmed)
+==============================================================================
+  PLAYER                 TEAM MKT  S     LINE   BOVADA    EDGE   SIM%   BEV%  TIER
+  ------------------------------------------------------------------------------------
+** Isaac Paredes          HOU  BTB  Under  1.5     -145   +2.2%    60%    59%  RECOMMENDED
+ > Bo Bichette            NYM  BTB  Under  1.5     +105   +3.3%    79%    49%  LEAN
+ > Marcelo Mayer          BOS  BTB  Under  1.5     -150   +2.3%    68%    60%  LEAN
+
+  GAME TOTALS — 2026-05-18
+  HOME                 AWAY                 SEL    LINE  BOVADA    EDGE  SCORE  TIER
+  --------------------------------------------------------------------------------
+** Philadelphia Phillies Cincinnati Reds      Over   10.0    -110  +1.7%     85  RECOMMENDED
+** Detroit Tigers       Cleveland Guardians  Over    8.0    -110  +0.4%     66  RECOMMENDED
+ > Arizona Diamondbacks San Francisco Giants Over    9.0    -110  +1.1%     63  LEAN
+ > Kansas City Royals   Boston Red Sox       Over    9.0    -110  +2.1%     59  LEAN
+ > Chicago Cubs         Milwaukee Brewers    Over   10.5    -110  +1.0%     59  LEAN
+ > Seattle Mariners     Chicago White Sox    Under   7.0    +105  +4.9%     49  LEAN
+ > Miami Marlins        Atlanta Braves       Over    8.5    -105  +0.4%     49  LEAN
+ > Los Angeles Angels   Athletics            Over    9.0    -105  +0.8%     49  LEAN
+
+
+[Email] 3 picks today, 22 graded yesterday
+  Email sent to xjayray@gmail.com

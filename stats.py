@@ -9,16 +9,63 @@ from datetime import datetime
 _BASE    = "https://statsapi.mlb.com/api/v1"
 _TIMEOUT = 10
 
-_player_cache:     dict[str, dict | None] = {}
-_all_players:      list[dict] | None      = None
-_team_stats_cache: dict[str, dict] | None = None
+_player_cache:          dict[str, dict | None]  = {}
+_all_players:           list[dict] | None       = None
+_team_stats_cache:      dict[str, dict] | None  = None
+_pitcher_gamelog_cache: dict[tuple, list[dict]] = {}
+_batter_gamelog_cache:  dict[tuple, list[dict]] = {}
 
 
 def _reset_caches() -> None:
     global _player_cache, _all_players, _team_stats_cache
+    global _pitcher_gamelog_cache, _batter_gamelog_cache
     _player_cache.clear()
-    _all_players      = None
-    _team_stats_cache = None
+    _all_players           = None
+    _team_stats_cache      = None
+    _pitcher_gamelog_cache.clear()
+    _batter_gamelog_cache.clear()
+
+
+def _fetch_pitcher_gamelog(player_id: int, season: int) -> list[dict]:
+    key = (player_id, season)
+    if key not in _pitcher_gamelog_cache:
+        try:
+            r = requests.get(
+                f"{_BASE}/people/{player_id}/stats",
+                params={"stats": "gameLog", "season": season,
+                        "group": "pitching", "gameType": "R"},
+                timeout=_TIMEOUT,
+            )
+            r.raise_for_status()
+            splits = r.json().get("stats", [{}])[0].get("splits", [])
+            _pitcher_gamelog_cache[key] = [
+                s["stat"] for s in splits
+                if float(s["stat"].get("inningsPitched", "0") or "0") >= 1.0
+            ]
+        except Exception:
+            _pitcher_gamelog_cache[key] = []
+    return _pitcher_gamelog_cache[key]
+
+
+def _fetch_batter_gamelog(player_id: int, season: int) -> list[dict]:
+    key = (player_id, season)
+    if key not in _batter_gamelog_cache:
+        try:
+            r = requests.get(
+                f"{_BASE}/people/{player_id}/stats",
+                params={"stats": "gameLog", "season": season,
+                        "group": "hitting", "gameType": "R"},
+                timeout=_TIMEOUT,
+            )
+            r.raise_for_status()
+            splits = r.json().get("stats", [{}])[0].get("splits", [])
+            _batter_gamelog_cache[key] = [
+                s["stat"] for s in splits
+                if int(s["stat"].get("plateAppearances", 0)) > 0
+            ]
+        except Exception:
+            _batter_gamelog_cache[key] = []
+    return _batter_gamelog_cache[key]
 
 
 def _load_all_players(season: int | None = None) -> list[dict]:
@@ -54,7 +101,9 @@ def find_player_info(player_name: str, season: int | None = None) -> dict | None
     for p in players:
         full = p.get("fullName", "").lower()
         if full == name_lower:
-            result = {"id": p["id"], "team_name": p.get("currentTeam", {}).get("name", "")}
+            result = {"id": p["id"],
+                      "team_id": p.get("currentTeam", {}).get("id"),
+                      "team_name": p.get("currentTeam", {}).get("name", "")}
             _player_cache[player_name] = result
             return result
 
@@ -63,7 +112,9 @@ def find_player_info(player_name: str, season: int | None = None) -> dict | None
         for p in players:
             fp = p.get("fullName", "").lower().split()
             if len(fp) >= 2 and fp[-1] == last and fp[0][0] == first_init:
-                result = {"id": p["id"], "team_name": p.get("currentTeam", {}).get("name", "")}
+                result = {"id": p["id"],
+                          "team_id": p.get("currentTeam", {}).get("id"),
+                          "team_name": p.get("currentTeam", {}).get("name", "")}
                 _player_cache[player_name] = result
                 return result
 
@@ -79,18 +130,7 @@ def fetch_pitcher_stats(player_id: int, season: int | None = None) -> dict | Non
     if season is None:
         season = datetime.now().year
     try:
-        r_log = requests.get(
-            f"{_BASE}/people/{player_id}/stats",
-            params={"stats": "gameLog", "season": season, "group": "pitching", "gameType": "R"},
-            timeout=_TIMEOUT,
-        )
-        r_log.raise_for_status()
-        splits = r_log.json().get("stats", [{}])[0].get("splits", [])
-
-        started = [
-            s["stat"] for s in splits
-            if float(s["stat"].get("inningsPitched", "0") or "0") >= 1.0
-        ]
+        started = _fetch_pitcher_gamelog(player_id, season)
         last5 = started[-5:] if len(started) >= 2 else []
 
         def _avg(key):
@@ -152,17 +192,7 @@ def fetch_batter_stats(player_id: int, season: int | None = None) -> dict | None
     if season is None:
         season = datetime.now().year
     try:
-        r_log = requests.get(
-            f"{_BASE}/people/{player_id}/stats",
-            params={"stats": "gameLog", "season": season, "group": "hitting", "gameType": "R"},
-            timeout=_TIMEOUT,
-        )
-        r_log.raise_for_status()
-        splits = r_log.json().get("stats", [{}])[0].get("splits", [])
-        played = [
-            s["stat"] for s in splits
-            if int(s["stat"].get("plateAppearances", 0)) > 0
-        ]
+        played = _fetch_batter_gamelog(player_id, season)
         last10 = played[-10:] if len(played) >= 3 else []
 
         def _avg(key):
@@ -207,6 +237,34 @@ def fetch_team_hitting(team_name: str, season: int | None = None) -> dict | None
         if name_lower in k.lower() or k.lower() in name_lower:
             return v
     return None
+
+
+def fetch_batter_game_values(player_id: int, season: int, stat_key: str,
+                             n: int = 20) -> list[float]:
+    """Return last n per-game values of stat_key from the batter's game log."""
+    games = _fetch_batter_gamelog(player_id, season)
+    return [float(g.get(stat_key, 0)) for g in games][-n:]
+
+
+def fetch_pitcher_game_values(player_id: int, season: int, stat_key: str,
+                              n: int = 10) -> list[float]:
+    """Return last n per-start values of stat_key from the pitcher's game log.
+    stat_key='outs' converts inningsPitched to outs recorded."""
+    games = _fetch_pitcher_gamelog(player_id, season)
+    if stat_key == "outs":
+        def _ip_to_outs(ip_str) -> float:
+            try:
+                s = str(ip_str or "0")
+                if "." in s:
+                    full, frac = s.split(".", 1)
+                    return int(full) * 3 + int(frac)
+                return float(s) * 3
+            except (ValueError, TypeError):
+                return 0.0
+        values = [_ip_to_outs(g.get("inningsPitched", "0")) for g in games]
+    else:
+        values = [float(g.get(stat_key, 0)) for g in games]
+    return values[-n:]
 
 
 def _load_team_stats(season: int) -> dict[str, dict] | None:

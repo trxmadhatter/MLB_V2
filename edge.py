@@ -5,6 +5,22 @@ from config import (
     MARKET_EDGE_MIN, MARKET_EXCLUDE_PLUS_ODDS,
     SCORE_RECOMMENDED, SCORE_LEAN,
 )
+from market_learn import load_calibration, _edge_bucket
+
+# Loaded once at import time; call _reload_cal() in tests or after backtest runs
+_CAL_SKIP: set[tuple] = set()
+
+
+def _reload_cal() -> None:
+    global _CAL_SKIP
+    _CAL_SKIP = {
+        (r["market_key"], r["selection"], r["edge_bucket"])
+        for r in load_calibration()
+        if not r["profitable"]
+    }
+
+
+_reload_cal()
 
 
 def bovada_break_even(price: int) -> float:
@@ -50,7 +66,13 @@ def classify_by_score(score: int, edge: float, market_key: str, selection: str,
         return "NO_BET"
     if edge < MARKET_EDGE_MIN.get(mkt, 0.0):
         return "NO_BET"
+    if price is not None and not (BET_PRICE_MIN <= price <= BET_PRICE_MAX):
+        return "NO_BET"
+    if price is not None and price >= 100 and edge < EDGE_MIN_BET:
+        return "NO_BET"
     if price is not None and price >= 100 and mkt in MARKET_EXCLUDE_PLUS_ODDS:
+        return "NO_BET"
+    if (market_key, selection, _edge_bucket(edge)) in _CAL_SKIP:
         return "NO_BET"
     if score >= SCORE_RECOMMENDED:
         return "RECOMMENDED"
