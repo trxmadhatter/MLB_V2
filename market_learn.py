@@ -93,6 +93,69 @@ def load_calibration(path: Path = CALIBRATION_PATH) -> list[dict]:
         return []
 
 
+def compute_live_calibration(live_conn: sqlite3.Connection) -> list[dict]:
+    """
+    Same bucketing as compute_calibration() but reads from the live
+    daily_picks and daily_game_picks tables instead of the backtest DB.
+    Game totals use market_key='totals'.
+    """
+    rows = live_conn.execute("""
+        SELECT market_key, selection, edge, bovada_price, result, profit_units
+        FROM daily_picks
+        WHERE result IN ('WIN', 'LOSS', 'PUSH')
+          AND recommendation IN ('RECOMMENDED', 'LEAN')
+    """).fetchall()
+
+    game_rows = live_conn.execute("""
+        SELECT 'totals' AS market_key, selection, edge, bovada_price, result, profit_units
+        FROM daily_game_picks
+        WHERE result IN ('WIN', 'LOSS', 'PUSH')
+          AND recommendation IN ('RECOMMENDED', 'LEAN')
+    """).fetchall()
+
+    buckets: dict[tuple, dict] = {}
+    for r in list(rows) + list(game_rows):
+        key = (r["market_key"], r["selection"], _edge_bucket(r["edge"]))
+        if key not in buckets:
+            buckets[key] = {"wins": 0, "losses": 0, "pushes": 0,
+                            "decided_prices": [], "profit": 0.0}
+        b = buckets[key]
+        if r["result"] == "WIN":
+            b["wins"] += 1
+            b["decided_prices"].append(r["bovada_price"])
+        elif r["result"] == "LOSS":
+            b["losses"] += 1
+            b["decided_prices"].append(r["bovada_price"])
+        else:
+            b["pushes"] += 1
+        b["profit"] += r["profit_units"] or 0.0
+
+    results = []
+    for (mkt, sel, bucket), b in buckets.items():
+        decided = b["wins"] + b["losses"]
+        if decided < MIN_SAMPLE:
+            continue
+        win_rate = b["wins"] / decided
+        avg_bev = sum(_breakeven(p) for p in b["decided_prices"]) / len(b["decided_prices"])
+        results.append({
+            "market_key":        mkt,
+            "selection":         sel,
+            "edge_bucket":       bucket,
+            "wins":              b["wins"],
+            "losses":            b["losses"],
+            "pushes":            b["pushes"],
+            "total":             decided,
+            "win_rate":          round(win_rate, 4),
+            "breakeven":         round(avg_bev, 4),
+            "edge_vs_breakeven": round(win_rate - avg_bev, 4),
+            "net_units":         round(b["profit"], 2),
+            "profitable":        win_rate >= avg_bev,
+        })
+
+    results.sort(key=lambda x: x["edge_vs_breakeven"], reverse=True)
+    return results
+
+
 def insight_text(row: dict) -> str:
     sign = "+" if row["profitable"] else "-"
     return (

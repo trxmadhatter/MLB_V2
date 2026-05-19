@@ -21,6 +21,7 @@ load_dotenv(ROOT / ".env")
 
 from db import get_conn, init_db
 from grade import grade_pending_picks, grade_pending_game_picks
+from market_learn import compute_live_calibration, save_calibration
 
 
 def _pt_date(offset_days: int = 0) -> str:
@@ -52,6 +53,12 @@ def main() -> None:
         total += graded + game_graded
 
     print(f"\nDone. Total graded: {total}")
+
+    print("\nUpdating live calibration from graded picks...")
+    cal = compute_live_calibration(conn)
+    save_calibration(cal)
+    print(f"  Saved {len(cal)} calibration buckets")
+
     conn.close()
 
 

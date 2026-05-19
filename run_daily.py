@@ -37,6 +37,16 @@ def _pt_date(offset_days: int = 0) -> str:
     return pt.strftime("%Y-%m-%d")
 
 
+def _commence_date_pt(commence_time: str) -> str:
+    """Convert an ISO-8601 UTC commence_time to a PT calendar date string."""
+    try:
+        dt = datetime.fromisoformat(commence_time.replace("Z", "+00:00"))
+        pt = dt.astimezone(timezone(timedelta(hours=-7)))
+        return pt.strftime("%Y-%m-%d")
+    except Exception:
+        return ""
+
+
 def _analyze(conn, pulled_at: str, today: str,
              game_data: dict | None = None) -> tuple[int, int]:
     """
@@ -46,6 +56,7 @@ def _analyze(conn, pulled_at: str, today: str,
     """
     rows = [dict(r) for r in get_snapshots(conn, pulled_at)]
     rows = [r for r in rows if r["player_name"] != ""]
+    rows = [r for r in rows if _commence_date_pt(r["commence_time"]) == today]
 
     groups: dict[tuple, list[dict]] = defaultdict(list)
     for row in rows:
@@ -319,6 +330,8 @@ def _analyze_games(conn, pulled_at: str, today: str,
     rows = [dict(r) for r in get_snapshots(conn, pulled_at)]
     # Filter to totals rows only (player_name == "" distinguishes game totals)
     rows = [r for r in rows if r["market_key"] == "totals" and r["player_name"] == ""]
+    # Only process games scheduled for today (PT) — prevents stale future events
+    rows = [r for r in rows if _commence_date_pt(r["commence_time"]) == today]
 
     groups: dict[tuple, list[dict]] = defaultdict(list)
     for row in rows:
