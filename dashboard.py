@@ -602,7 +602,7 @@ def main() -> None:
         g_show_all  = ga_col.checkbox("Show all evaluated game lines", value=False, key="g_show_all")
         g_min_score = gb_col.slider("Min signal score", 0, 90, 0, step=5, key="g_min_score")
 
-        g_picks_all = get_today_game_picks(conn, str(g_date))
+        g_picks_all = [dict(r) for r in get_today_game_picks(conn, str(g_date))]
         matchup_options = sorted({
             f"{p.get('away_team','?')} @ {p.get('home_team','?')}"
             for p in g_picks_all
