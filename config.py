@@ -1,6 +1,24 @@
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).parent
+
+
+def pt_now() -> datetime:
+    """Current datetime in US/Pacific, DST-aware."""
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("America/Los_Angeles"))
+    except ImportError:
+        # fallback: approximate — DST runs Mar-Nov so UTC-7, else UTC-8
+        month = datetime.now(timezone.utc).month
+        offset = 7 if 3 <= month <= 11 else 8
+        return datetime.now(timezone.utc) - timedelta(hours=offset)
+
+
+def pt_date(offset_days: int = 0) -> str:
+    """Today's date string in PT, with optional day offset."""
+    return (pt_now() + timedelta(days=offset_days)).strftime("%Y-%m-%d")
 
 # The Odds API
 ODDS_API_BASE = "https://api.the-odds-api.com/v4"

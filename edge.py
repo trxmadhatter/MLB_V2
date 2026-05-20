@@ -68,7 +68,7 @@ def classify_by_score(score: int, edge: float, market_key: str, selection: str,
         return "NO_BET"
     if price is not None and not (BET_PRICE_MIN <= price <= BET_PRICE_MAX):
         return "NO_BET"
-    if price is not None and price >= 100 and edge < EDGE_MIN_BET:
+    if edge < EDGE_MIN_BET:
         return "NO_BET"
     if price is not None and price >= 100 and mkt in MARKET_EXCLUDE_PLUS_ODDS:
         return "NO_BET"

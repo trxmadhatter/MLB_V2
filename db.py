@@ -3,6 +3,14 @@ from pathlib import Path
 
 from config import DB_PATH
 
+BACKTEST_DB_PATH = Path(__file__).parent / "data" / "backtest.db"
+
+
+def get_backtest_conn() -> sqlite3.Connection:
+    conn = sqlite3.connect(BACKTEST_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
 
 def get_conn(db_path: Path = DB_PATH) -> sqlite3.Connection:
     db_path = Path(db_path)
@@ -299,6 +307,19 @@ def mark_bet_skipped(conn: sqlite3.Connection, pick_id: int) -> None:
     conn.commit()
 
 
+def mark_game_bet_placed(conn: sqlite3.Connection, pick_id: int, units: float) -> None:
+    conn.execute(
+        "UPDATE daily_game_picks SET bet_placed=1, units_wagered=? WHERE id=?",
+        (units, pick_id),
+    )
+    conn.commit()
+
+
+def mark_game_bet_skipped(conn: sqlite3.Connection, pick_id: int) -> None:
+    conn.execute("UPDATE daily_game_picks SET bet_placed=-1 WHERE id=?", (pick_id,))
+    conn.commit()
+
+
 def update_pick_confidence(
     conn: sqlite3.Connection,
     pick_id: int,
@@ -313,19 +334,19 @@ def update_pick_confidence(
     conn.commit()
 
 
-def get_today_picks(conn: sqlite3.Connection, pick_date: str) -> list[sqlite3.Row]:
-    return conn.execute(
+def get_today_picks(conn: sqlite3.Connection, pick_date: str) -> list[dict]:
+    return [dict(r) for r in conn.execute(
         "SELECT * FROM daily_picks WHERE pick_date=? ORDER BY edge DESC",
         (pick_date,),
-    ).fetchall()
+    ).fetchall()]
 
 
-def get_active_bets(conn: sqlite3.Connection) -> list[sqlite3.Row]:
-    return conn.execute("""
+def get_active_bets(conn: sqlite3.Connection) -> list[dict]:
+    return [dict(r) for r in conn.execute("""
         SELECT * FROM daily_picks
         WHERE bet_placed=1 AND result='PENDING'
         ORDER BY pick_date DESC, edge DESC
-    """).fetchall()
+    """).fetchall()]
 
 
 def get_roi_by_market(conn: sqlite3.Connection) -> list[sqlite3.Row]:
@@ -337,9 +358,14 @@ def get_roi_by_market(conn: sqlite3.Connection) -> list[sqlite3.Row]:
                SUM(CASE WHEN result='PUSH' THEN 1 ELSE 0 END) AS pushes,
                ROUND(100.0 * SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END) /
                      NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS') THEN 1 ELSE 0 END),0),1) AS win_pct,
-               ROUND(SUM(CASE WHEN result NOT IN ('PENDING') THEN COALESCE(profit_units,0) ELSE 0 END),2) AS net_units
-        FROM daily_picks
-        WHERE bet_placed=1 AND result != 'PENDING'
+               ROUND(SUM(COALESCE(profit_units,0)),2) AS net_units
+        FROM (
+            SELECT market_key, result, profit_units FROM daily_picks
+            WHERE bet_placed=1 AND result != 'PENDING'
+            UNION ALL
+            SELECT market_key, result, profit_units FROM daily_game_picks
+            WHERE bet_placed=1 AND result != 'PENDING'
+        )
         GROUP BY market_key
         ORDER BY net_units DESC
     """).fetchall()
@@ -354,9 +380,14 @@ def get_roi_by_tier(conn: sqlite3.Connection) -> list[sqlite3.Row]:
                SUM(CASE WHEN result='PUSH' THEN 1 ELSE 0 END) AS pushes,
                ROUND(100.0 * SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END) /
                      NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS') THEN 1 ELSE 0 END),0),1) AS win_pct,
-               ROUND(SUM(CASE WHEN result NOT IN ('PENDING') THEN COALESCE(profit_units,0) ELSE 0 END),2) AS net_units
-        FROM daily_picks
-        WHERE bet_placed=1 AND result != 'PENDING'
+               ROUND(SUM(COALESCE(profit_units,0)),2) AS net_units
+        FROM (
+            SELECT recommendation, result, profit_units FROM daily_picks
+            WHERE bet_placed=1 AND result != 'PENDING'
+            UNION ALL
+            SELECT recommendation, result, profit_units FROM daily_game_picks
+            WHERE bet_placed=1 AND result != 'PENDING'
+        )
         GROUP BY recommendation
         ORDER BY net_units DESC
     """).fetchall()
@@ -381,8 +412,13 @@ def get_cumulative_pnl(conn: sqlite3.Connection) -> list[sqlite3.Row]:
         SELECT pick_date,
                SUM(COALESCE(profit_units,0)) AS daily_units,
                SUM(SUM(COALESCE(profit_units,0))) OVER (ORDER BY pick_date) AS cumulative_units
-        FROM daily_picks
-        WHERE bet_placed=1 AND result != 'PENDING'
+        FROM (
+            SELECT pick_date, profit_units FROM daily_picks
+            WHERE bet_placed=1 AND result != 'PENDING'
+            UNION ALL
+            SELECT pick_date, profit_units FROM daily_game_picks
+            WHERE bet_placed=1 AND result != 'PENDING'
+        )
         GROUP BY pick_date
         ORDER BY pick_date
     """).fetchall()
@@ -440,8 +476,8 @@ def update_game_pick_result(conn: sqlite3.Connection, pick_id: int, result: str,
     conn.commit()
 
 
-def get_today_game_picks(conn: sqlite3.Connection, pick_date: str) -> list[sqlite3.Row]:
-    return conn.execute(
+def get_today_game_picks(conn: sqlite3.Connection, pick_date: str) -> list[dict]:
+    return [dict(r) for r in conn.execute(
         "SELECT * FROM daily_game_picks WHERE pick_date=? ORDER BY edge DESC",
         (pick_date,),
-    ).fetchall()
+    ).fetchall()]

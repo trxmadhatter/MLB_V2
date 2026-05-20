@@ -32,9 +32,7 @@ from simulate import simulate_pick
 from stats import find_player_info as _find_player_info
 
 
-def _pt_date(offset_days: int = 0) -> str:
-    pt = datetime.now(timezone.utc) - timedelta(hours=7) + timedelta(days=offset_days)
-    return pt.strftime("%Y-%m-%d")
+from config import pt_date as _pt_date
 
 
 def _commence_date_pt(commence_time: str) -> str:

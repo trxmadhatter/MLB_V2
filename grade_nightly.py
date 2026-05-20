@@ -10,7 +10,6 @@ Usage:
     python grade_nightly.py
 """
 import sys
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).parent
@@ -19,14 +18,10 @@ sys.path.insert(0, str(ROOT))
 from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 
-from db import get_conn, init_db
+from config import pt_date as _pt_date
+from db import get_conn, init_db, get_backtest_conn
 from grade import grade_pending_picks, grade_pending_game_picks
-from market_learn import compute_live_calibration, save_calibration
-
-
-def _pt_date(offset_days: int = 0) -> str:
-    pt = datetime.now(timezone.utc) - timedelta(hours=7) + timedelta(days=offset_days)
-    return pt.strftime("%Y-%m-%d")
+from market_learn import compute_calibration, save_calibration
 
 
 def main() -> None:
@@ -54,8 +49,10 @@ def main() -> None:
 
     print(f"\nDone. Total graded: {total}")
 
-    print("\nUpdating live calibration from graded picks...")
-    cal = compute_live_calibration(conn)
+    print("\nUpdating calibration from backtest DB...")
+    bt_conn = get_backtest_conn()
+    cal = compute_calibration(bt_conn)
+    bt_conn.close()
     save_calibration(cal)
     print(f"  Saved {len(cal)} calibration buckets")
 

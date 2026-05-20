@@ -441,7 +441,7 @@ def send(today_picks, yesterday_picks, record, today, yesterday,
 
 
 def main() -> None:
-    now       = datetime.now(timezone.utc) - timedelta(hours=7)
+    now       = __import__('config').pt_now()
     today     = now.strftime("%Y-%m-%d")
     yesterday = (now - timedelta(days=1)).strftime("%Y-%m-%d")
 

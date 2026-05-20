@@ -191,7 +191,8 @@ def run_backtest(
     bt_conn: sqlite3.Connection,
 ) -> None:
     """Loop from start_date to end_date (inclusive, YYYY-MM-DD), skipping today and future."""
-    today = (datetime.now(timezone.utc) - timedelta(hours=7)).strftime("%Y-%m-%d")
+    from config import pt_date
+    today = pt_date()
     d   = datetime.strptime(start_date, "%Y-%m-%d")
     end = datetime.strptime(end_date,   "%Y-%m-%d")
     while d <= end:
@@ -350,7 +351,8 @@ def _get_bt_conn() -> sqlite3.Connection:
 
 
 def main() -> None:
-    today = (datetime.now(timezone.utc) - timedelta(hours=7)).strftime("%Y-%m-%d")
+    from config import pt_date
+    today = pt_date()
 
     parser = argparse.ArgumentParser(description="MLB V2 Backtester")
     parser.add_argument("--days",        type=int, default=14,

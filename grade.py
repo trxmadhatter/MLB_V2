@@ -164,7 +164,8 @@ def grade_pending_game_picks(conn, results_date: str) -> int:
 
         actual_total = matched["home_runs"] + matched["away_runs"]
         result = grade_outcome(pick["selection"], pick["point"], actual_total)
-        profit = calc_profit(result, pick["bovada_price"])
+        units  = pick["units_wagered"] or 1.0
+        profit = round(calc_profit(result, pick["bovada_price"]) * units, 4)
         update_game_pick_result(
             conn, pick["id"], result,
             matched["home_runs"], matched["away_runs"], actual_total, profit
@@ -197,7 +198,8 @@ def grade_pending_picks(conn, results_date: str) -> int:
             continue
         actual  = index[key]
         result  = grade_outcome(pick["selection"], pick["point"], actual)
-        profit  = calc_profit(result, pick["bovada_price"])
+        units   = pick["units_wagered"] or 1.0
+        profit  = round(calc_profit(result, pick["bovada_price"]) * units, 4)
         update_pick_result(conn, pick["id"], result, actual, profit)
         graded += 1
 
