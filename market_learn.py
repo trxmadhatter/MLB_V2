@@ -32,7 +32,7 @@ def compute_calibration(bt_conn: sqlite3.Connection) -> list[dict]:
     rows = bt_conn.execute("""
         SELECT market_key, selection, edge, bovada_price, result, profit_units
         FROM backtest_picks
-        WHERE result IN ('WIN', 'LOSS', 'PUSH')
+        WHERE result IN ('WIN', 'LOSS', 'PUSH') AND edge >= 0
     """).fetchall()
 
     buckets: dict[tuple, dict] = {}
@@ -104,6 +104,7 @@ def compute_live_calibration(live_conn: sqlite3.Connection) -> list[dict]:
         FROM daily_picks
         WHERE result IN ('WIN', 'LOSS', 'PUSH')
           AND recommendation IN ('RECOMMENDED', 'LEAN')
+          AND edge >= 0
     """).fetchall()
 
     game_rows = live_conn.execute("""
