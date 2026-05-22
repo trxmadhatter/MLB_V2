@@ -104,7 +104,7 @@ def compute_live_calibration(live_conn: sqlite3.Connection) -> list[dict]:
         FROM daily_picks
         WHERE result IN ('WIN', 'LOSS', 'PUSH')
           AND recommendation IN ('RECOMMENDED', 'LEAN')
-          AND edge >= 0
+          AND edge IS NOT NULL AND edge >= 0
     """).fetchall()
 
     game_rows = live_conn.execute("""
@@ -112,6 +112,7 @@ def compute_live_calibration(live_conn: sqlite3.Connection) -> list[dict]:
         FROM daily_game_picks
         WHERE result IN ('WIN', 'LOSS', 'PUSH')
           AND recommendation IN ('RECOMMENDED', 'LEAN')
+          AND edge IS NOT NULL AND edge >= 0
     """).fetchall()
 
     buckets: dict[tuple, dict] = {}
