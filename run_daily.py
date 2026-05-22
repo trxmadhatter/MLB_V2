@@ -26,6 +26,7 @@ from pull_props import pull_and_store
 from consensus import compute_consensus, vig_remove_pair
 from edge import bovada_break_even, compute_edge, compute_ev, classify_by_score
 from grade import grade_pending_picks, grade_pending_game_picks
+from market_learn import compute_live_calibration, save_calibration
 from scorer import score_pick
 from scorer_game import score_game_total
 from simulate import simulate_pick
@@ -486,6 +487,11 @@ def main() -> None:
     print(f"\n[4b] Grading game picks for {yesterday}...")
     game_graded = grade_pending_game_picks(conn, yesterday)
     print(f"  Graded: {game_graded} game picks")
+
+    print(f"\n[4c] Updating market calibration...")
+    calibration = compute_live_calibration(conn)
+    save_calibration(calibration)
+    print(f"  Calibration updated: {len(calibration)} buckets")
 
     print(f"\n{'-'*50}")
     print(f"  Today's picks ({today}):")
