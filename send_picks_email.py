@@ -68,7 +68,9 @@ def get_today_picks(conn, today: str) -> list[dict]:
         FROM daily_picks
         WHERE pick_date = ?
           AND recommendation IN ('RECOMMENDED','LEAN')
-        ORDER BY edge DESC
+          AND sim_prob IS NOT NULL
+          AND sim_prob >= bovada_break_even_prob
+        ORDER BY recommendation DESC, sim_prob DESC, edge DESC
     """, (today,)).fetchall()]
 
 
