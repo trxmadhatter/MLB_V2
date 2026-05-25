@@ -274,7 +274,7 @@ def _parse_why(player_name: str, market_key: str, selection: str, breakdown: lis
         return re.sub(r"[^\x20-\x7e]", " ", note or "").strip()
 
     def val(note, key):
-        m = re.search(rf"{key}=([^\s]+)", clean(note))
+        m = re.search(rf"{re.escape(key)}=([^\s]+)", clean(note))
         return m.group(1) if m else None
 
     top = sorted(breakdown, key=lambda b: b.get("pts", 0), reverse=True)
@@ -289,8 +289,8 @@ def _parse_why(player_name: str, market_key: str, selection: str, breakdown: lis
             continue
         seen.add(signal)
 
+        # ── batter signals ────────────────────────────────────────────
         if signal == "sp_quality":
-            # note: "sp=First Last ERA=X.XX"
             m = re.search(r"sp=(.+?)\s+ERA=([\d.]+)", note)
             if m:
                 parts.insert(0, f"facing {m.group(1)} (ERA {m.group(2)})")
@@ -299,23 +299,20 @@ def _parse_why(player_name: str, market_key: str, selection: str, breakdown: lis
                 if sp:
                     parts.insert(0, f"facing {sp}")
 
-        elif signal in ("recent_tb", "recent_hits", "recent_hr", "recent_rbi"):
+        elif signal in ("recent_tb", "recent_hits", "recent_h", "recent_hr", "recent_rbi"):
             v = val(note, "recent")
             if v and v != "None":
-                lbl = {"recent_tb": "TB", "recent_hits": "hits",
+                lbl = {"recent_tb": "TB", "recent_hits": "hits", "recent_h": "hits",
                        "recent_hr": "HR", "recent_rbi": "RBI"}.get(signal, "")
-                parts.append(f"averaging {v} {lbl} over recent games".strip())
+                parts.append(f"averaging {v} {lbl}/game recently".strip())
 
-        elif signal == "recent_k":
-            v = val(note, "recent_k")
-            if v and v != "None":
-                parts.append(f"averaging {v} Ks per start recently")
-
-        elif signal == "season_slg":
-            v = val(note, "season_slg")
+        elif signal in ("season_slg", "season_avg"):
+            key = "season_slg" if signal == "season_slg" else "season_avg"
+            v = val(note, key)
             if v and v != "None":
                 try:
-                    parts.append(f"season SLG {float(v):.3f}")
+                    lbl = "SLG" if signal == "season_slg" else "avg"
+                    parts.append(f"season {lbl} {float(v):.3f}")
                 except ValueError:
                     pass
 
@@ -330,18 +327,73 @@ def _parse_why(player_name: str, market_key: str, selection: str, breakdown: lis
         elif signal == "barrel_pct":
             v = val(note, "barrel_pct")
             if v and v != "None":
-                parts.append(f"{v}% barrel rate")
+                try:
+                    parts.append(f"{float(v):.1f}% barrel rate")
+                except ValueError:
+                    pass
 
         elif signal == "hard_hit_pct":
             v = val(note, "hard_hit_pct")
             if v and v != "None":
-                parts.append(f"{v}% hard-contact rate")
+                try:
+                    parts.append(f"{float(v):.1f}% hard-contact rate")
+                except ValueError:
+                    pass
 
-        elif signal == "season_k9":
+        # ── pitcher strikeout signals ─────────────────────────────────
+        elif signal == "ump_k_tendency":
+            m = re.search(r"ump=(.+?)\s+\(([+-][\d.]+)\)", note)
+            if m:
+                ump_name = m.group(1)
+                ump_val  = float(m.group(2))
+                zone_desc = "wide zone" if ump_val >= 0.2 else ("tight zone" if ump_val <= -0.2 else "average zone")
+                parts.append(f"umpire {ump_name} ({zone_desc}, {ump_val:+.1f})")
+
+        elif signal == "opp_team_k_pct":
+            v = val(note, "opp_k_pct")
+            if v and v != "None":
+                try:
+                    pct = float(v.rstrip("%")) if "%" in v else float(v) * 100
+                    tendency = "high" if pct > 23.5 else "low"
+                    parts.append(f"opponent K rate {pct:.1f}% ({tendency})")
+                except ValueError:
+                    pass
+
+        elif signal in ("recent_k_rate", "recent_k"):
+            v = val(note, "recent_k")
+            if v and v != "None":
+                try:
+                    parts.append(f"averaging {float(v):.1f} Ks/start recently")
+                except ValueError:
+                    pass
+
+        elif signal in ("season_k_pct", "season_k9"):
             v = val(note, "k9")
             if v and v != "None":
-                parts.append(f"{v} K/9 this season")
+                try:
+                    parts.append(f"{float(v):.1f} K/9 this season")
+                except ValueError:
+                    pass
 
+        elif signal == "whiff_pct":
+            v = val(note, "whiff_pct")
+            if v and v != "None":
+                try:
+                    parts.append(f"{float(v):.1f}% whiff rate")
+                except ValueError:
+                    pass
+
+        elif signal == "stuff_plus":
+            v = val(note, "stuff_plus")
+            if v and v != "None":
+                try:
+                    sp_val = float(v)
+                    desc = "elite" if sp_val >= 115 else ("above avg" if sp_val >= 100 else "below avg")
+                    parts.append(f"Stuff+ {sp_val:.0f} ({desc})")
+                except ValueError:
+                    pass
+
+        # ── pitcher hits/outs signals ─────────────────────────────────
         elif signal == "season_whip":
             v = val(note, "whip")
             if v and v != "None":
@@ -350,10 +402,41 @@ def _parse_why(player_name: str, market_key: str, selection: str, breakdown: lis
         elif signal == "opp_team_avg":
             v = val(note, "opp_avg")
             if v and v != "None":
-                parts.append(f"opponent batting avg {v}")
+                parts.append(f"opponent avg {v}")
 
-        elif signal in ("park_tb_factor", "park_hits_factor", "park_run_factor"):
-            v = val(note, "park_factor") or val(note, "hits_factor") or val(note, "hr_factor")
+        elif signal == "recent_ip":
+            v = val(note, "recent_ip")
+            if v and v != "None":
+                parts.append(f"averaging {v} IP/start recently")
+
+        elif signal == "opp_lineup_ops":
+            v = val(note, "opp_ops")
+            if v and v != "None":
+                try:
+                    parts.append(f"opponent OPS {float(v):.3f}")
+                except ValueError:
+                    pass
+
+        elif signal == "xfip":
+            v = val(note, "xfip")
+            if v and v != "None":
+                try:
+                    parts.append(f"xFIP {float(v):.2f}")
+                except ValueError:
+                    pass
+
+        elif signal == "swstr_pct":
+            v = val(note, "swstr_pct")
+            if v and v != "None":
+                try:
+                    parts.append(f"{float(v)*100:.1f}% swinging-strike rate")
+                except ValueError:
+                    pass
+
+        # ── park signal ───────────────────────────────────────────────
+        elif signal in ("park_tb_factor", "park_hits_factor", "park_run_factor", "park_k_factor"):
+            v = (val(note, "park_factor") or val(note, "hits_factor")
+                 or val(note, "hr_factor") or val(note, "k_factor"))
             if v and v != "None":
                 try:
                     pf = int(v)
@@ -363,14 +446,109 @@ def _parse_why(player_name: str, market_key: str, selection: str, breakdown: lis
                 except ValueError:
                     pass
 
-        elif signal == "recent_ip":
-            v = val(note, "recent_ip")
-            if v and v != "None":
-                parts.append(f"averaging {v} IP/start recently")
-
         if len(parts) >= 4:
             break
 
+    # ── game total signals (different structure) ──────────────────────
+    if market_key == "totals":
+        sp_parts  = []
+        off_parts = []
+        env_parts = []
+
+        for sig in sorted(breakdown, key=lambda b: b.get("pts", 0), reverse=True):
+            signal = sig.get("signal", "")
+            note   = clean(sig.get("note", ""))
+            pts    = sig.get("pts", 0)
+            if pts <= 0 or note in ("no_data", ""):
+                continue
+
+            if signal in ("home_sp_quality", "away_sp_quality"):
+                m = re.match(r"^(.+?)\s+era=", note)
+                sp_name = m.group(1) if m else None
+                era_v   = val(note, "era")
+                whiff_v = val(note, "whiff")
+                if sp_name and sp_name != "?":
+                    side = "Home" if signal == "home_sp_quality" else "Away"
+                    details = []
+                    if era_v and era_v != "None":
+                        try:
+                            details.append(f"ERA {float(era_v):.2f}")
+                        except ValueError:
+                            pass
+                    if whiff_v and whiff_v != "None":
+                        try:
+                            details.append(f"{float(whiff_v):.0f}% whiff")
+                        except ValueError:
+                            pass
+                    desc = f"{side}: {sp_name}"
+                    if details:
+                        desc += f" ({', '.join(details)})"
+                    if len(sp_parts) < 2:
+                        sp_parts.append(desc)
+
+            elif signal in ("home_team_offense", "away_team_offense"):
+                m = re.match(r"^(.+?)\s+rpg=", note)
+                team_name = m.group(1) if m else None
+                rpg_v = val(note, "rpg")
+                ops_v = val(note, "ops")
+                if team_name and rpg_v and rpg_v != "None":
+                    try:
+                        rpg_f = float(rpg_v)
+                        desc = f"{team_name} {rpg_f:.1f} R/G"
+                        if ops_v and ops_v != "None":
+                            desc += f" (OPS {float(ops_v):.3f})"
+                        if len(off_parts) < 2:
+                            off_parts.append(desc)
+                    except ValueError:
+                        pass
+
+            elif signal == "umpire_run_factor":
+                m = re.search(r"ump=(.+?)\s+\(([+-][\d.]+)\)", note)
+                if m:
+                    ump_name = m.group(1)
+                    ump_val  = float(m.group(2))
+                    zone_desc = "wide zone" if ump_val >= 0.2 else ("tight zone" if ump_val <= -0.2 else "average zone")
+                    run_impact = "suppresses runs" if ump_val >= 0.2 else ("inflates runs" if ump_val <= -0.2 else "neutral")
+                    env_parts.append(f"umpire {ump_name} ({zone_desc}, {run_impact})")
+
+            elif signal == "park_run_factor":
+                hr_v   = val(note, "hr_factor")
+                hits_v = val(note, "hits_factor")
+                if hr_v and hr_v != "None":
+                    try:
+                        composite = int(hr_v) * 0.6 + (int(hits_v) if hits_v and hits_v != "None" else 100) * 0.4
+                        if composite != 100:
+                            lbl = "hitter-friendly park" if composite > 100 else "pitcher-friendly park"
+                            env_parts.append(f"{lbl} (HR {hr_v}, hits {hits_v})")
+                    except ValueError:
+                        pass
+
+            elif signal == "weather":
+                wind_v = val(note, "wind")
+                tf_v   = val(note, "tf")
+                if wind_v and tf_v:
+                    try:
+                        wind_kph = float(wind_v.rstrip("kph"))
+                        tf       = float(tf_v)
+                        if wind_kph > 10:
+                            wind_dir = "blowing out" if tf > 0.6 else ("blowing in" if tf < 0.4 else "crosswind")
+                            env_parts.append(f"wind {wind_kph:.0f} kph ({wind_dir})")
+                    except ValueError:
+                        pass
+
+        sections = []
+        if sp_parts:
+            sections.append(" · ".join(sp_parts))
+        if off_parts:
+            sections.append(", ".join(off_parts))
+        if env_parts:
+            sections.append(", ".join(env_parts[:2]))
+
+        if not sections:
+            return f"Model signals favor {dir_word} total — score reflects edge strength."
+        return f"{'; '.join(sections)}. Model favors {dir_word} total."
+
+    # ── prop picks ────────────────────────────────────────────────────
     if not parts:
         return f"Model signals favor {dir_word} {mkt_word} — score reflects edge strength."
 
@@ -382,7 +560,7 @@ def _parse_why(player_name: str, market_key: str, selection: str, breakdown: lis
     elif pitcher:
         return f"{player_name} is {pitcher[0]}. Model favors {dir_word} {mkt_word}."
     else:
-        return f"{player_name}: {', '.join(stats[:4])}. Model favors {dir_word} {mkt_word}."
+        return f"{player_name}: {', '.join(parts[:4])}. Model favors {dir_word} {mkt_word}."
 
 
 def _why_content(p: dict, breakdown: list, sim_prob, bev) -> None:
@@ -408,6 +586,16 @@ def _why_content(p: dict, breakdown: list, sim_prob, bev) -> None:
         )
 
 
+def _bet_badge_html(p: dict) -> str:
+    if p.get("bet_placed") == 1:
+        u = p.get("units_wagered") or "?"
+        u_str = f"{u:g}u" if isinstance(u, (int, float)) else f"{u}u"
+        return (f'<span style="background:#0f2518;color:#34d399;border:1px solid #065f46;'
+                f'border-radius:20px;font-size:11px;font-weight:700;padding:3px 10px;'
+                f'display:inline-block;letter-spacing:0.8px">BET {u_str}</span>')
+    return ""
+
+
 def _prop_card_html(p: dict) -> str:
     t        = _tier(p["recommendation"])
     lbl      = _rec_label(p["recommendation"])
@@ -417,27 +605,28 @@ def _prop_card_html(p: dict) -> str:
                 if t == "elite" else "linear-gradient(90deg,#b45309,#fbbf24)")
     edge_col = "#818cf8" if t == "elite" else "#fbbf24"
 
-    p_name   = _html.escape(str(p["player_name"]))
-    team     = _html.escape(_full_team(p.get("team_abbr") or ""))
-    mkt      = _html.escape(_mkt(p["market_key"]))
-    sel      = _html.escape(str(p["selection"]))
-    point_s  = f"{p['point']:g}" if p["point"] is not None else "?"
-    price_s  = f"{p['bovada_price']:+d}" if p["bovada_price"] is not None else "—"
-    edge_s   = f"{(p['edge'] or 0):.1%}"
-    ev_s     = f"{(p['ev'] or 0):+.1%}"
-    books_s  = str(p["consensus_book_count"] or "?")
-    res_html = _result_html(p)
+    p_name    = _html.escape(str(p["player_name"]))
+    team      = _html.escape(_full_team(p.get("team_abbr") or ""))
+    mkt       = _html.escape(_mkt(p["market_key"]))
+    sel       = _html.escape(str(p["selection"]))
+    point_s   = f"{p['point']:g}" if p["point"] is not None else "?"
+    price_s   = f"{p['bovada_price']:+d}" if p["bovada_price"] is not None else "—"
+    edge_s    = f"{(p['edge'] or 0):.1%}"
+    ev_s      = f"{(p['ev'] or 0):+.1%}"
+    books_s   = str(p["consensus_book_count"] or "?")
+    res_html  = _result_html(p)
+    bet_badge = _bet_badge_html(p)
+    tracked_style = "border-left:3px solid #34d399;background:#0d1812;" if p.get("bet_placed") == 1 else ""
 
     return f"""
-<div class="pick {t}">
+<div class="pick {t}" style="{tracked_style}">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
     <div>
       <div style="font-size:16px;font-weight:600;color:#f1f5f9">{p_name}</div>
       <div style="font-size:12px;color:#64748b;margin-top:2px">{team}</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
-      <span class="badge {t}">{lbl}</span>
-      {res_html}
+      <span class="badge {t}">{lbl}</span>{bet_badge}{res_html}
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
@@ -477,14 +666,16 @@ def _game_card_html(p: dict) -> str:
                 if t == "elite" else "linear-gradient(90deg,#b45309,#fbbf24)")
     edge_col = "#818cf8" if t == "elite" else "#fbbf24"
 
-    away     = _html.escape(str(p.get("away_team") or "?"))
-    home     = _html.escape(str(p.get("home_team") or "?"))
-    sel      = _html.escape(str(p["selection"]))
-    point_s  = f"{p['point']:g}" if p["point"] is not None else "?"
-    price_s  = f"{p['bovada_price']:+d}" if p["bovada_price"] is not None else "—"
-    edge_s   = f"{(p['edge'] or 0):.1%}"
-    books_s  = str(p.get("consensus_book_count") or "?")
-    res_html = _result_html(p)
+    away      = _html.escape(str(p.get("away_team") or "?"))
+    home      = _html.escape(str(p.get("home_team") or "?"))
+    sel       = _html.escape(str(p["selection"]))
+    point_s   = f"{p['point']:g}" if p["point"] is not None else "?"
+    price_s   = f"{p['bovada_price']:+d}" if p["bovada_price"] is not None else "—"
+    edge_s    = f"{(p['edge'] or 0):.1%}"
+    books_s   = str(p.get("consensus_book_count") or "?")
+    res_html  = _result_html(p)
+    bet_badge = _bet_badge_html(p)
+    tracked_style = "border-left:3px solid #34d399;background:#0d1812;" if p.get("bet_placed") == 1 else ""
 
     actual      = p.get("actual_total")
     actual_html = ""
@@ -495,15 +686,14 @@ def _game_card_html(p: dict) -> str:
         )
 
     return f"""
-<div class="pick {t} game">
+<div class="pick {t} game" style="{tracked_style}">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
     <div>
       <div style="font-size:16px;font-weight:600;color:#f1f5f9">{away} @ {home}</div>
       <div style="font-size:12px;color:#64748b;margin-top:2px">Game Total</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
-      <span class="badge {t}">{lbl}</span>
-      {res_html}
+      <span class="badge {t}">{lbl}</span>{bet_badge}{res_html}
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
@@ -526,8 +716,7 @@ def _game_card_html(p: dict) -> str:
       <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.8px">Books</div>
       <div style="font-size:13px;color:#cbd5e1;font-weight:500">{books_s}</div>
     </div>
-  </div>
-  {actual_html}
+  </div>{actual_html}
 </div>"""
 
 
@@ -647,6 +836,8 @@ def _render_game_picks(conn, picks: list, show_all: bool, min_score: int,
         return
 
     def _passes(p):
+        if p.get("bet_placed") == 1:
+            return True
         if not (show_all or p["recommendation"] in ("LEAN", "RECOMMENDED")):
             return False
         if p["bovada_price"] is None or not (BET_PRICE_MIN <= p["bovada_price"] <= BET_PRICE_MAX):
@@ -660,6 +851,17 @@ def _render_game_picks(conn, picks: list, show_all: bool, min_score: int,
         return True
 
     visible = [p for p in picks if _passes(p)]
+
+    # Keep only best side per game — prevents Over+Under both showing for same game total
+    _seen_game: dict = {}
+    _deduped_game = []
+    for p in visible:  # ordered by edge DESC from DB
+        k = p["event_id"]
+        if k not in _seen_game:
+            _seen_game[k] = True
+            _deduped_game.append(p)
+    visible = _deduped_game
+
     if not visible:
         st.info("No game picks match current filters.")
         return
@@ -740,6 +942,8 @@ def _render_today(conn, today: str) -> None:
     min_score = st.slider("Min signal score", 0, 90, 0, step=5, key="min_score")
 
     def _passes(p):
+        if p.get("bet_placed") == 1:
+            return True
         if not (show_all or p["recommendation"] in ("LEAN", "RECOMMENDED")):
             return False
         if p["bovada_price"] is None or not (BET_PRICE_MIN <= p["bovada_price"] <= BET_PRICE_MAX):
@@ -752,6 +956,17 @@ def _render_today(conn, today: str) -> None:
         return True
 
     visible = [p for p in picks if _passes(p)]
+
+    # Keep only best side per (player, market, line) — prevents Over+Under both showing
+    _seen: dict = {}
+    _deduped = []
+    for p in visible:  # already sorted best-first
+        k = (p["player_name"], p["market_key"], p["point"])
+        if k not in _seen:
+            _seen[k] = True
+            _deduped.append(p)
+    visible = _deduped
+
     if not visible:
         st.info("No picks match current filters.")
         return
@@ -799,16 +1014,107 @@ def _render_active_bets(conn) -> None:
     rows = []
     for b in bets:
         rows.append({
-            "Date":   b["pick_date"],
-            "Player": b["player_name"],
-            "Market": _mkt(b["market_key"]),
-            "Line":   (f"{b['selection']} {b['point']:g}" if b["point"] is not None else b["selection"]),
-            "Price":  (f"{b['bovada_price']:+d}" if b["bovada_price"] is not None else "—"),
-            "Edge":   f"{(b['edge'] or 0):.1%}",
-            "Units":  b["units_wagered"],
-            "Tier":   _rec_label(b["recommendation"]),
+            "Date":          b["pick_date"],
+            "Player/Game":   b["player_name"],
+            "Market":        _mkt(b["market_key"]),
+            "Line":          (f"{b['selection']} {b['point']:g}" if b["point"] is not None else b["selection"]),
+            "Price":         (f"{b['bovada_price']:+d}" if b["bovada_price"] is not None else "—"),
+            "Edge":          f"{(b['edge'] or 0):.1%}",
+            "Units":         b["units_wagered"],
+            "Tier":          _rec_label(b["recommendation"]),
         })
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+
+def _render_history(conn) -> None:
+    from datetime import datetime as _dt
+
+    tier_filter = st.selectbox(
+        "Tier", ["RECOMMENDED + LEAN", "RECOMMENDED only", "LEAN only"],
+        key="hist_tier",
+    )
+    tiers = (
+        ("RECOMMENDED", "LEAN") if "+" in tier_filter
+        else ("RECOMMENDED",) if "RECOMMENDED only" in tier_filter
+        else ("LEAN",)
+    )
+    placeholders = ",".join("?" * len(tiers))
+
+    rows_props = conn.execute(f"""
+        SELECT pick_date, recommendation, player_name AS label, market_key,
+               selection, point, result, profit_units, edge
+        FROM daily_picks
+        WHERE recommendation IN ({placeholders}) AND result NOT IN ('PENDING','VOID')
+        ORDER BY pick_date DESC, edge DESC
+    """, tiers).fetchall()
+
+    rows_games = conn.execute(f"""
+        SELECT pick_date, recommendation,
+               away_team || ' @ ' || home_team AS label, market_key,
+               selection, point, result, profit_units, edge
+        FROM daily_game_picks
+        WHERE recommendation IN ({placeholders}) AND result NOT IN ('PENDING','VOID')
+        ORDER BY pick_date DESC, edge DESC
+    """, tiers).fetchall()
+
+    all_rows = sorted(
+        [dict(r) for r in rows_props] + [dict(r) for r in rows_games],
+        key=lambda r: (r["pick_date"], -(r["edge"] or 0)),
+        reverse=True,
+    )
+
+    if not all_rows:
+        st.info("No graded picks at this tier yet.")
+        return
+
+    # Overall summary
+    wins   = sum(1 for r in all_rows if r["result"] == "WIN")
+    losses = sum(1 for r in all_rows if r["result"] == "LOSS")
+    pushes = sum(1 for r in all_rows if r["result"] == "PUSH")
+    graded = wins + losses
+    net    = sum(r["profit_units"] or 0 for r in all_rows)
+    winpct = wins / graded * 100 if graded else 0.0
+    roi    = net / graded * 100 if graded else 0.0
+
+    c1, c2, c3, c4, c5 = st.columns(5)
+    _render_stat(c1, f"{wins+losses+pushes}", "Total Picks")
+    _render_stat(c2, f"{wins}-{losses}-{pushes}", "W – L – P")
+    _render_stat(c3, f"{winpct:.1f}%", "Win Rate", "#34d399" if winpct >= 52 else "#f87171")
+    _render_stat(c4, f"{net:+.2f}u", "Net Units", "#34d399" if net >= 0 else "#f87171")
+    _render_stat(c5, f"{roi:+.1f}%", "ROI/Pick", "#34d399" if roi >= 0 else "#f87171")
+
+    st.markdown("---")
+
+    # Group by date
+    grouped = {}
+    for r in all_rows:
+        grouped.setdefault(r["pick_date"], []).append(r)
+
+    for date in sorted(grouped.keys(), reverse=True):
+        day_rows = grouped[date]
+        dw = sum(1 for r in day_rows if r["result"] == "WIN")
+        dl = sum(1 for r in day_rows if r["result"] == "LOSS")
+        dp = sum(1 for r in day_rows if r["result"] == "PUSH")
+        dnet = sum(r["profit_units"] or 0 for r in day_rows)
+        dg = dw + dl
+        dwpct = dw / dg * 100 if dg else 0.0
+
+        label = _dt.strptime(date, "%Y-%m-%d").strftime("%a %b %#d")
+        with st.expander(f"{label}   {dw}-{dl}-{dp}   {dnet:+.2f}u   ({dwpct:.0f}% win)", expanded=False):
+            table = []
+            for r in day_rows:
+                res_icon = {"WIN": "✅", "LOSS": "❌", "PUSH": "➖"}.get(r["result"], "?")
+                mkt = MARKET_LABELS.get(r["market_key"], r["market_key"])
+                table.append({
+                    "Tier": _rec_label(r["recommendation"]),
+                    "Pick": r["label"],
+                    "Market": mkt,
+                    "Side": f"{r['selection']} {r['point']}",
+                    "Edge": f"{r['edge']*100:.1f}%" if r["edge"] else "--",
+                    "Result": res_icon,
+                    "Units": f"{r['profit_units']:+.2f}" if r["profit_units"] is not None else "--",
+                })
+            st.dataframe(pd.DataFrame(table), use_container_width=True, hide_index=True)
 
 
 def _render_learning(conn) -> None:
@@ -994,7 +1300,7 @@ def main() -> None:
 </div>
 """, unsafe_allow_html=True)
 
-    tab1, tab2, tab3, tab4 = st.tabs(["Today's Picks", "Game Markets", "My Bets", "Results & Learning"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Today's Picks", "Game Markets", "My Bets", "Pick History", "Results & Learning"])
 
     with tab1:
         from datetime import date as _date
@@ -1034,6 +1340,9 @@ def main() -> None:
         _render_active_bets(conn)
 
     with tab4:
+        _render_history(conn)
+
+    with tab5:
         _render_learning(conn)
 
     conn.close()
