@@ -354,6 +354,9 @@ def _analyze_games(conn, pulled_at: str, today: str,
 
         point = bov_over["point"]
 
+        if point < 7.0:
+            continue  # skip F5 / alternate totals — full-game MLB lines are always >= 7
+
         bov_fair_over, bov_fair_under = vig_remove_pair(bov_over["price"], bov_under["price"])
 
         consensus = compute_consensus(
