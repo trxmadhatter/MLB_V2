@@ -195,6 +195,8 @@ def init_db(conn: sqlite3.Connection) -> None:
         "ALTER TABLE daily_picks ADD COLUMN signal_breakdown TEXT",
         "ALTER TABLE daily_picks ADD COLUMN sim_prob REAL",
         "ALTER TABLE daily_picks ADD COLUMN team_abbr TEXT",
+        "ALTER TABLE daily_picks ADD COLUMN emailed INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE daily_game_picks ADD COLUMN emailed INTEGER NOT NULL DEFAULT 0",
     ]:
         try:
             conn.execute(col_sql)
@@ -252,11 +254,15 @@ def upsert_pick(conn: sqlite3.Connection, pick: dict) -> None:
             consensus_book_count=excluded.consensus_book_count,
             edge=excluded.edge,
             ev=excluded.ev,
-            recommendation=excluded.recommendation,
             signal_score=excluded.signal_score,
             signal_breakdown=excluded.signal_breakdown,
             sim_prob=excluded.sim_prob,
-            team_abbr=excluded.team_abbr
+            team_abbr=excluded.team_abbr,
+            recommendation=CASE
+                WHEN daily_picks.emailed=1 OR daily_picks.bet_placed!=0
+                THEN daily_picks.recommendation
+                ELSE excluded.recommendation
+            END
     """, pick)
     conn.commit()
 
@@ -343,7 +349,16 @@ def get_today_picks(conn: sqlite3.Connection, pick_date: str) -> list[dict]:
 
 def get_active_bets(conn: sqlite3.Connection) -> list[dict]:
     return [dict(r) for r in conn.execute("""
-        SELECT * FROM daily_picks
+        SELECT pick_date, player_name, market_key, selection, point,
+               bovada_price, edge, units_wagered, recommendation
+        FROM daily_picks
+        WHERE bet_placed=1 AND result='PENDING'
+        UNION ALL
+        SELECT pick_date,
+               away_team || ' @ ' || home_team AS player_name,
+               market_key, selection, point,
+               bovada_price, edge, units_wagered, recommendation
+        FROM daily_game_picks
         WHERE bet_placed=1 AND result='PENDING'
         ORDER BY pick_date DESC, edge DESC
     """).fetchall()]
@@ -451,9 +466,13 @@ def upsert_game_pick(conn: sqlite3.Connection, pick: dict) -> None:
             consensus_fair_prob=excluded.consensus_fair_prob,
             consensus_book_count=excluded.consensus_book_count,
             edge=excluded.edge,
-            recommendation=excluded.recommendation,
             signal_score=excluded.signal_score,
-            signal_breakdown=excluded.signal_breakdown
+            signal_breakdown=excluded.signal_breakdown,
+            recommendation=CASE
+                WHEN daily_game_picks.emailed=1 OR daily_game_picks.bet_placed!=0
+                THEN daily_game_picks.recommendation
+                ELSE excluded.recommendation
+            END
     """, pick)
     conn.commit()
 

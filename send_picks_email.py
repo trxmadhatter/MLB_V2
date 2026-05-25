@@ -62,7 +62,7 @@ def get_yesterday_game_results(conn, yesterday: str) -> list[dict]:
 
 def get_today_picks(conn, today: str) -> list[dict]:
     rows = [dict(r) for r in conn.execute("""
-        SELECT player_name, market_key, selection, point,
+        SELECT event_id, player_name, market_key, selection, point,
                bovada_price, consensus_fair_prob, edge, recommendation,
                home_team, away_team
         FROM daily_picks
@@ -75,7 +75,7 @@ def get_today_picks(conn, today: str) -> list[dict]:
     if not rows:
         # sim_prob not yet populated — fall back to edge-only so email isn't empty
         rows = [dict(r) for r in conn.execute("""
-            SELECT player_name, market_key, selection, point,
+            SELECT event_id, player_name, market_key, selection, point,
                    bovada_price, consensus_fair_prob, edge, recommendation,
                    home_team, away_team
             FROM daily_picks
@@ -456,6 +456,25 @@ def send(today_picks, yesterday_picks, record, today, yesterday,
     print(f"  Email sent to {email_to}")
 
 
+def _stamp_emailed(conn, today: str, today_picks: list[dict],
+                   today_game_picks: list[dict]) -> None:
+    for p in today_picks:
+        conn.execute("""
+            UPDATE daily_picks SET emailed=1
+            WHERE pick_date=? AND event_id=? AND player_name=?
+              AND market_key=? AND selection=? AND point=?
+        """, (today, p.get("event_id",""), p["player_name"],
+              p["market_key"], p["selection"], p["point"]))
+    for p in today_game_picks:
+        conn.execute("""
+            UPDATE daily_game_picks SET emailed=1
+            WHERE pick_date=? AND home_team=? AND away_team=?
+              AND market_key=? AND selection=? AND point=?
+        """, (today, p["home_team"], p["away_team"],
+              p["market_key"], p["selection"], p["point"]))
+    conn.commit()
+
+
 def main() -> None:
     now       = __import__('config').pt_now()
     today     = now.strftime("%Y-%m-%d")
@@ -467,13 +486,15 @@ def main() -> None:
     today_game_picks       = get_today_game_picks(conn, today)
     yesterday_game_results = get_yesterday_game_results(conn, yesterday)
     record                 = get_running_record(conn)
-    conn.close()
 
     total_today = len(today_picks) + len(today_game_picks)
     print(f"\n[Email] {total_today} picks today ({len(today_game_picks)} game totals), "
           f"{len(yesterday_picks) + len(yesterday_game_results)} graded yesterday")
     send(today_picks, yesterday_picks, record, today, yesterday,
          today_game_picks, yesterday_game_results)
+
+    _stamp_emailed(conn, today, today_picks, today_game_picks)
+    conn.close()
 
 
 if __name__ == "__main__":
