@@ -353,6 +353,7 @@ def get_active_bets(conn: sqlite3.Connection) -> list[dict]:
                bovada_price, edge, units_wagered, recommendation
         FROM daily_picks
         WHERE bet_placed=1 AND result='PENDING'
+          AND recommendation IN ('LEAN','RECOMMENDED')
         UNION ALL
         SELECT pick_date,
                away_team || ' @ ' || home_team AS player_name,
@@ -360,6 +361,7 @@ def get_active_bets(conn: sqlite3.Connection) -> list[dict]:
                bovada_price, edge, units_wagered, recommendation
         FROM daily_game_picks
         WHERE bet_placed=1 AND result='PENDING'
+          AND recommendation IN ('LEAN','RECOMMENDED')
         ORDER BY pick_date DESC, edge DESC
     """).fetchall()]
 
@@ -377,9 +379,11 @@ def get_roi_by_market(conn: sqlite3.Connection) -> list[sqlite3.Row]:
         FROM (
             SELECT market_key, result, profit_units FROM daily_picks
             WHERE bet_placed=1 AND result != 'PENDING'
+              AND recommendation IN ('LEAN','RECOMMENDED')
             UNION ALL
             SELECT market_key, result, profit_units FROM daily_game_picks
             WHERE bet_placed=1 AND result != 'PENDING'
+              AND recommendation IN ('LEAN','RECOMMENDED')
         )
         GROUP BY market_key
         ORDER BY net_units DESC
@@ -399,9 +403,11 @@ def get_roi_by_tier(conn: sqlite3.Connection) -> list[sqlite3.Row]:
         FROM (
             SELECT recommendation, result, profit_units FROM daily_picks
             WHERE bet_placed=1 AND result != 'PENDING'
+              AND recommendation IN ('LEAN','RECOMMENDED')
             UNION ALL
             SELECT recommendation, result, profit_units FROM daily_game_picks
             WHERE bet_placed=1 AND result != 'PENDING'
+              AND recommendation IN ('LEAN','RECOMMENDED')
         )
         GROUP BY recommendation
         ORDER BY net_units DESC
@@ -430,9 +436,11 @@ def get_cumulative_pnl(conn: sqlite3.Connection) -> list[sqlite3.Row]:
         FROM (
             SELECT pick_date, profit_units FROM daily_picks
             WHERE bet_placed=1 AND result != 'PENDING'
+              AND recommendation IN ('LEAN','RECOMMENDED')
             UNION ALL
             SELECT pick_date, profit_units FROM daily_game_picks
             WHERE bet_placed=1 AND result != 'PENDING'
+              AND recommendation IN ('LEAN','RECOMMENDED')
         )
         GROUP BY pick_date
         ORDER BY pick_date

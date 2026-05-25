@@ -912,8 +912,28 @@ def _render_today(conn, today: str) -> None:
 
     game_picks_all = get_today_game_picks(conn, today)
 
-    # Day summary bar
-    prop_bet  = sum(1 for p in picks if p["recommendation"] in ("LEAN", "RECOMMENDED"))
+    # Filters — defined before the header so counts can reflect filtered state
+    col_a, col_b = st.columns([2, 1.5])
+    sim_only  = col_a.checkbox("Sim confirmed only", value=False)
+    show_all  = col_b.checkbox("Show all evaluated lines", value=False)
+    min_score = st.slider("Min signal score", 0, 90, 0, step=5, key="min_score")
+
+    def _passes(p):
+        if p.get("bet_placed") == 1:
+            return True
+        if not (show_all or p["recommendation"] in ("LEAN", "RECOMMENDED")):
+            return False
+        if p["bovada_price"] is None or not (BET_PRICE_MIN <= p["bovada_price"] <= BET_PRICE_MAX):
+            return False
+        if p["signal_score"] is not None and p["signal_score"] < min_score:
+            return False
+        if sim_only and p["recommendation"] in ("LEAN", "RECOMMENDED"):
+            if p["sim_prob"] is None or p["sim_prob"] < p["bovada_break_even_prob"]:
+                return False
+        return True
+
+    # Day summary bar — counts based on current filter state
+    prop_bet  = sum(1 for p in picks if _passes(p) and p["recommendation"] in ("LEAN", "RECOMMENDED"))
     game_bet  = sum(1 for p in game_picks_all if p["recommendation"] in ("LEAN", "RECOMMENDED"))
     live_pnl  = sum(
         (p.get("profit_units") or 0)
@@ -947,26 +967,6 @@ def _render_today(conn, today: str) -> None:
   </div>
 </div>
 """, unsafe_allow_html=True)
-
-    # Filters
-    col_a, col_b = st.columns([2, 1.5])
-    sim_only  = col_a.checkbox("Sim confirmed only", value=True)
-    show_all  = col_b.checkbox("Show all evaluated lines", value=False)
-    min_score = st.slider("Min signal score", 0, 90, 0, step=5, key="min_score")
-
-    def _passes(p):
-        if p.get("bet_placed") == 1:
-            return True
-        if not (show_all or p["recommendation"] in ("LEAN", "RECOMMENDED")):
-            return False
-        if p["bovada_price"] is None or not (BET_PRICE_MIN <= p["bovada_price"] <= BET_PRICE_MAX):
-            return False
-        if p["signal_score"] is not None and p["signal_score"] < min_score:
-            return False
-        if sim_only and p["recommendation"] in ("LEAN", "RECOMMENDED"):
-            if p["sim_prob"] is None or p["sim_prob"] < p["bovada_break_even_prob"]:
-                return False
-        return True
 
     visible = [p for p in picks if _passes(p)]
 
@@ -1140,9 +1140,11 @@ def _render_learning(conn) -> None:
             ROUND(SUM(CASE WHEN result NOT IN ('PENDING')
                 THEN COALESCE(profit_units,0) ELSE 0 END), 2) AS net_units
         FROM (
-            SELECT result, profit_units FROM daily_picks WHERE bet_placed=1
+            SELECT result, profit_units FROM daily_picks
+            WHERE bet_placed=1 AND recommendation IN ('LEAN','RECOMMENDED')
             UNION ALL
-            SELECT result, profit_units FROM daily_game_picks WHERE bet_placed=1
+            SELECT result, profit_units FROM daily_game_picks
+            WHERE bet_placed=1 AND recommendation IN ('LEAN','RECOMMENDED')
         )
     """).fetchone()
 
