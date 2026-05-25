@@ -516,10 +516,15 @@ def _parse_why(player_name: str, market_key: str, selection: str, breakdown: lis
                 hits_v = val(note, "hits_factor")
                 if hr_v and hr_v != "None":
                     try:
-                        composite = int(hr_v) * 0.6 + (int(hits_v) if hits_v and hits_v != "None" else 100) * 0.4
+                        if hits_v and hits_v != "None":
+                            composite = int(hr_v) * 0.6 + int(hits_v) * 0.4
+                            park_note = f"HR {hr_v}, hits {hits_v}"
+                        else:
+                            composite = int(hr_v)
+                            park_note = f"HR {hr_v}"
                         if composite != 100:
                             lbl = "hitter-friendly park" if composite > 100 else "pitcher-friendly park"
-                            env_parts.append(f"{lbl} (HR {hr_v}, hits {hits_v})")
+                            env_parts.append(f"{lbl} ({park_note})")
                     except ValueError:
                         pass
 
@@ -528,7 +533,10 @@ def _parse_why(player_name: str, market_key: str, selection: str, breakdown: lis
                 tf_v   = val(note, "tf")
                 if wind_v and tf_v:
                     try:
-                        wind_kph = float(wind_v.rstrip("kph"))
+                        m_wind = re.match(r"[\d.]+", wind_v)
+                        if not m_wind:
+                            continue
+                        wind_kph = float(m_wind.group())
                         tf       = float(tf_v)
                         if wind_kph > 10:
                             wind_dir = "blowing out" if tf > 0.6 else ("blowing in" if tf < 0.4 else "crosswind")
@@ -852,14 +860,19 @@ def _render_game_picks(conn, picks: list, show_all: bool, min_score: int,
 
     visible = [p for p in picks if _passes(p)]
 
-    # Keep only best side per game — prevents Over+Under both showing for same game total
+    # Keep only best side per game — but always keep bet_placed picks even if lower edge
     _seen_game: dict = {}
     _deduped_game = []
-    for p in visible:  # ordered by edge DESC from DB
-        k = p["event_id"]
-        if k not in _seen_game:
-            _seen_game[k] = True
+    for p in visible:  # first pass: protect tracked bets
+        if p.get("bet_placed") == 1:
+            _seen_game[p["event_id"]] = True
             _deduped_game.append(p)
+    for p in visible:  # second pass: fill best non-bet side per remaining event
+        if p.get("bet_placed") != 1:
+            k = p["event_id"]
+            if k not in _seen_game:
+                _seen_game[k] = True
+                _deduped_game.append(p)
     visible = _deduped_game
 
     if not visible:

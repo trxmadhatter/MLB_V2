@@ -61,7 +61,7 @@ def get_yesterday_game_results(conn, yesterday: str) -> list[dict]:
 
 
 def get_today_picks(conn, today: str) -> list[dict]:
-    return [dict(r) for r in conn.execute("""
+    rows = [dict(r) for r in conn.execute("""
         SELECT player_name, market_key, selection, point,
                bovada_price, consensus_fair_prob, edge, recommendation,
                home_team, away_team
@@ -72,6 +72,20 @@ def get_today_picks(conn, today: str) -> list[dict]:
           AND sim_prob >= bovada_break_even_prob
         ORDER BY recommendation DESC, sim_prob DESC, edge DESC
     """, (today,)).fetchall()]
+    if not rows:
+        # sim_prob not yet populated — fall back to edge-only so email isn't empty
+        rows = [dict(r) for r in conn.execute("""
+            SELECT player_name, market_key, selection, point,
+                   bovada_price, consensus_fair_prob, edge, recommendation,
+                   home_team, away_team
+            FROM daily_picks
+            WHERE pick_date = ?
+              AND recommendation IN ('RECOMMENDED','LEAN')
+            ORDER BY recommendation DESC, edge DESC
+        """, (today,)).fetchall()]
+        if rows:
+            print(f"  [email] WARNING: sim_prob not populated — falling back to {len(rows)} edge-only picks")
+    return rows
 
 
 def get_yesterday_results(conn, yesterday: str) -> list[dict]:

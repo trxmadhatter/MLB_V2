@@ -490,8 +490,11 @@ def main() -> None:
 
     print(f"\n[4c] Updating market calibration...")
     calibration = compute_live_calibration(conn)
-    save_calibration(calibration)
-    print(f"  Calibration updated: {len(calibration)} buckets")
+    if calibration:
+        save_calibration(calibration)
+        print(f"  Calibration updated: {len(calibration)} buckets")
+    else:
+        print(f"  No graded picks — calibration unchanged")
 
     print(f"\n{'-'*50}")
     print(f"  Today's picks ({today}):")
