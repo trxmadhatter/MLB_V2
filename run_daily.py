@@ -210,7 +210,7 @@ def _print_one_sided(conn, pulled_at: str) -> None:
             AND nb.point         = b.point
             AND nb.bookmaker_key != b.bookmaker_key
         WHERE b.pulled_at = ? AND b.bookmaker_key = 'bovada'
-        GROUP BY b.event_id, b.market_key, b.player_name, b.point
+        GROUP BY b.event_id, b.market_key, b.player_name, b.point, b.selection, b.price
         HAVING COUNT(DISTINCT b.selection) = 1
         ORDER BY other_books DESC, b.market_key, b.player_name
     """, (pulled_at,)).fetchall()
