@@ -24,20 +24,64 @@ from grade import grade_pending_picks, grade_pending_game_picks
 from market_learn import compute_calibration, save_calibration
 
 
+VOID_AFTER_DAYS = 3  # mark PENDING picks older than this as VOID
+
+
+def _get_pending_dates(conn) -> list[str]:
+    """All distinct pick dates that still have PENDING rows, oldest first."""
+    rows = conn.execute("""
+        SELECT DISTINCT pick_date FROM daily_picks WHERE result='PENDING'
+        UNION
+        SELECT DISTINCT pick_date FROM daily_game_picks WHERE result='PENDING'
+        ORDER BY pick_date
+    """).fetchall()
+    return [r["pick_date"] for r in rows]
+
+
+def _void_stale_pending(conn, today: str) -> int:
+    """Mark PENDING picks older than VOID_AFTER_DAYS days as VOID."""
+    from datetime import date, timedelta
+    cutoff = (date.fromisoformat(today) - timedelta(days=VOID_AFTER_DAYS)).isoformat()
+    try:
+        cur = conn.execute(
+            "UPDATE daily_picks SET result='VOID' WHERE result='PENDING' AND pick_date < ?",
+            (cutoff,),
+        )
+        n1 = cur.rowcount
+        cur = conn.execute(
+            "UPDATE daily_game_picks SET result='VOID' WHERE result='PENDING' AND pick_date < ?",
+            (cutoff,),
+        )
+        n2 = cur.rowcount
+        conn.commit()
+    except Exception:
+        conn._conn.rollback()
+        raise
+    return n1 + n2
+
+
 def main() -> None:
     today     = _pt_date(0)
     yesterday = _pt_date(-1)
 
     print(f"\n{'='*50}")
     print(f"MLB V2 Nightly Grade - {today}")
-    print(f"Grading picks for: {yesterday}")
     print(f"{'='*50}")
 
     conn = get_conn()
     init_db(conn)
 
+    pending_dates = _get_pending_dates(conn)
+    # Exclude today — games aren't final yet
+    dates_to_grade = [d for d in pending_dates if d != today]
+
+    if not dates_to_grade:
+        print("\nNo pending picks to grade.")
+    else:
+        print(f"\nPending dates to grade: {dates_to_grade}")
+
     total = 0
-    for date in (today, yesterday):
+    for date in dates_to_grade:
         print(f"\nGrading player props for {date}...")
         graded = grade_pending_picks(conn, date)
         print(f"  Graded: {graded} picks")
@@ -46,6 +90,10 @@ def main() -> None:
         game_graded = grade_pending_game_picks(conn, date)
         print(f"  Graded: {game_graded} game picks")
         total += graded + game_graded
+
+    voided = _void_stale_pending(conn, today)
+    if voided:
+        print(f"\nVOIDed {voided} picks still PENDING after {VOID_AFTER_DAYS}+ days (DNP/postponed).")
 
     print(f"\nDone. Total graded: {total}")
 

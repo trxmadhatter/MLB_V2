@@ -1,7 +1,13 @@
 .env
 data/mlb_v2.db
+data/picks.db
 data/picks/
+backtest.db
 __pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
+*.log
+logs/
+.streamlit/secrets.toml
+nul
