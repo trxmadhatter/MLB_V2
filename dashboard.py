@@ -1138,7 +1138,7 @@ def _render_learning(conn) -> None:
             SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END) AS losses,
             SUM(CASE WHEN result='PUSH' THEN 1 ELSE 0 END) AS pushes,
             ROUND(SUM(CASE WHEN result NOT IN ('PENDING')
-                THEN COALESCE(profit_units,0) ELSE 0 END), 2) AS net_units
+                THEN COALESCE(profit_units,0) ELSE 0 END)::numeric, 2) AS net_units
         FROM (
             SELECT result, profit_units FROM daily_picks
             WHERE bet_placed=1 AND recommendation IN ('LEAN','RECOMMENDED')
