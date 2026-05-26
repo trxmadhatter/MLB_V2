@@ -95,6 +95,19 @@ def get_conn(db_path=None) -> PgConn:
     load_dotenv(Path(__file__).parent / ".env")
     dsn = os.environ.get("DATABASE_URL")
     if not dsn:
+        try:
+            import streamlit as st
+            dsn = st.secrets.get("DATABASE_URL")
+            if not dsn:
+                host = st.secrets.get("DB_HOST")
+                user = st.secrets.get("DB_USER")
+                pwd  = st.secrets.get("DB_PASS")
+                name = st.secrets.get("DB_NAME", "neondb")
+                if host and user and pwd:
+                    dsn = f"postgresql://{user}:{pwd}@{host}/{name}?sslmode=require"
+        except Exception:
+            pass
+    if not dsn:
         raise RuntimeError(
             "DATABASE_URL is not set. Add it to .env or export it as an environment variable."
         )
