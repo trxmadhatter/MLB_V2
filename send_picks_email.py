@@ -490,11 +490,12 @@ def main() -> None:
     total_today = len(today_picks) + len(today_game_picks)
     print(f"\n[Email] {total_today} picks today ({len(today_game_picks)} game totals), "
           f"{len(yesterday_picks) + len(yesterday_game_results)} graded yesterday")
-    send(today_picks, yesterday_picks, record, today, yesterday,
-         today_game_picks, yesterday_game_results)
-
-    _stamp_emailed(conn, today, today_picks, today_game_picks)
-    conn.close()
+    try:
+        send(today_picks, yesterday_picks, record, today, yesterday,
+             today_game_picks, yesterday_game_results)
+        _stamp_emailed(conn, today, today_picks, today_game_picks)
+    finally:
+        conn.close()
 
 
 if __name__ == "__main__":

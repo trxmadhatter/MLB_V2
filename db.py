@@ -20,13 +20,27 @@ class _PgCursor:
         return self._cur.rowcount
 
     def fetchall(self):
-        return self._cur.fetchall()
+        try:
+            return self._cur.fetchall()
+        finally:
+            self._cur.close()
 
     def fetchone(self):
         return self._cur.fetchone()
 
+    def close(self):
+        self._cur.close()
+
+    def __del__(self):
+        try:
+            self._cur.close()
+        except Exception:
+            pass
+
     def __iter__(self):
-        return iter(self._cur.fetchall())
+        rows = self._cur.fetchall()
+        self._cur.close()
+        return iter(rows)
 
 
 class PgConn:
@@ -61,6 +75,9 @@ class PgConn:
     def commit(self):
         self._conn.commit()
 
+    def rollback(self):
+        self._conn.rollback()
+
     def close(self):
         self._conn.close()
 
@@ -76,7 +93,11 @@ def get_backtest_conn() -> sqlite3.Connection:
 def get_conn(db_path=None) -> PgConn:
     from dotenv import load_dotenv
     load_dotenv(Path(__file__).parent / ".env")
-    dsn = os.environ["DATABASE_URL"]
+    dsn = os.environ.get("DATABASE_URL")
+    if not dsn:
+        raise RuntimeError(
+            "DATABASE_URL is not set. Add it to .env or export it as an environment variable."
+        )
     return PgConn(dsn)
 
 
@@ -193,6 +214,23 @@ def init_db(conn: PgConn) -> None:
         conn.execute(stmt)
     conn.commit()
 
+    # Add columns that may be absent from tables created before they were introduced
+    _col_migrations = [
+        ("daily_picks",      "emailed",             "INTEGER NOT NULL DEFAULT 0"),
+        ("daily_picks",      "sim_prob",             "REAL"),
+        ("daily_picks",      "team_abbr",            "TEXT"),
+        ("daily_picks",      "signal_score",         "INTEGER"),
+        ("daily_picks",      "signal_breakdown",     "TEXT"),
+        ("daily_picks",      "confidence_score",     "INTEGER"),
+        ("daily_picks",      "confidence_factors",   "TEXT"),
+        ("daily_game_picks", "emailed",              "INTEGER NOT NULL DEFAULT 0"),
+        ("daily_game_picks", "signal_score",         "INTEGER"),
+        ("daily_game_picks", "signal_breakdown",     "TEXT"),
+    ]
+    for table, col, col_def in _col_migrations:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_def}")
+    conn.commit()
+
 
 # ── Writes ────────────────────────────────────────────────────────────────────
 
@@ -251,7 +289,7 @@ def upsert_pick(conn: PgConn, pick: dict) -> None:
             sim_prob=EXCLUDED.sim_prob,
             team_abbr=EXCLUDED.team_abbr,
             recommendation=CASE
-                WHEN daily_picks.emailed=1 OR daily_picks.bet_placed!=0
+                WHEN daily_picks.emailed=1 OR daily_picks.bet_placed=1
                 THEN daily_picks.recommendation
                 ELSE EXCLUDED.recommendation
             END
@@ -457,7 +495,7 @@ def upsert_game_pick(conn: PgConn, pick: dict) -> None:
             signal_score=EXCLUDED.signal_score,
             signal_breakdown=EXCLUDED.signal_breakdown,
             recommendation=CASE
-                WHEN daily_game_picks.emailed=1 OR daily_game_picks.bet_placed!=0
+                WHEN daily_game_picks.emailed=1 OR daily_game_picks.bet_placed=1
                 THEN daily_game_picks.recommendation
                 ELSE EXCLUDED.recommendation
             END

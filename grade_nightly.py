@@ -55,7 +55,7 @@ def _void_stale_pending(conn, today: str) -> int:
         n2 = cur.rowcount
         conn.commit()
     except Exception:
-        conn._conn.rollback()
+        conn.rollback()
         raise
     return n1 + n2
 
@@ -70,6 +70,11 @@ def main() -> None:
 
     conn = get_conn()
     init_db(conn)
+
+    # Void stale picks first so the grading loop never touches them
+    voided = _void_stale_pending(conn, today)
+    if voided:
+        print(f"\nVOIDed {voided} picks still PENDING after {VOID_AFTER_DAYS}+ days (DNP/postponed).")
 
     pending_dates = _get_pending_dates(conn)
     # Exclude today — games aren't final yet
@@ -90,10 +95,6 @@ def main() -> None:
         game_graded = grade_pending_game_picks(conn, date)
         print(f"  Graded: {game_graded} game picks")
         total += graded + game_graded
-
-    voided = _void_stale_pending(conn, today)
-    if voided:
-        print(f"\nVOIDed {voided} picks still PENDING after {VOID_AFTER_DAYS}+ days (DNP/postponed).")
 
     print(f"\nDone. Total graded: {total}")
 
