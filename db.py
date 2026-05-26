@@ -534,6 +534,30 @@ def update_game_pick_result(conn: PgConn, pick_id: int, result: str,
     conn.commit()
 
 
+def void_missing_bovada_lines(conn: PgConn, pick_date: str, pulled_at: str) -> int:
+    """Downgrade to NO_BET any unbet pick whose Bovada line is absent from the latest snapshot."""
+    cur = conn.execute("""
+        UPDATE daily_picks
+        SET recommendation = 'NO_BET'
+        WHERE pick_date = %s
+          AND bet_placed = 0
+          AND result = 'PENDING'
+          AND recommendation != 'NO_BET'
+          AND NOT EXISTS (
+              SELECT 1 FROM props_snapshots ps
+              WHERE ps.pulled_at    = %s
+                AND ps.bookmaker_key = 'bovada'
+                AND ps.event_id     = daily_picks.event_id
+                AND ps.market_key   = daily_picks.market_key
+                AND ps.player_name  = daily_picks.player_name
+                AND ps.point        = daily_picks.point
+          )
+    """, (pick_date, pulled_at))
+    n = cur.rowcount
+    conn.commit()
+    return n
+
+
 def get_today_game_picks(conn: PgConn, pick_date: str) -> list[dict]:
     return [dict(r) for r in conn.execute(
         "SELECT * FROM daily_game_picks WHERE pick_date=%s ORDER BY edge DESC",

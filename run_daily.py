@@ -476,6 +476,11 @@ def main() -> None:
     evaluated, no_bets = _analyze(conn, pulled_at, today, game_data=game_data)
     print(f"  Evaluated: {evaluated}  |  Structural no-bets logged: {no_bets}")
 
+    from db import void_missing_bovada_lines
+    voided_lines = void_missing_bovada_lines(conn, today, pulled_at)
+    if voided_lines:
+        print(f"  Voided {voided_lines} picks — Bovada line no longer posted")
+
     csv_path = _export_csv(conn, today)
     print(f"  CSV: {csv_path}")
 
