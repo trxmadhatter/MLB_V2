@@ -29,7 +29,7 @@ ODDS_FORMAT = "american"
 # V1 player prop markets only
 V1_MARKETS = [
     "pitcher_strikeouts",
-    "pitcher_hits_allowed",
+    "pitcher_outs",
     "pitcher_earned_runs",
     "batter_hits",
     "batter_total_bases",
@@ -65,12 +65,13 @@ EDGE_LEAN = 0.02          # >= 2%, < 4%
 EDGE_MIN_BET = 0.01       # >= 1% required for whitelist markets
 
 # Winning market/direction combinations — calibration filter handles bad edge buckets
+# Removed 2026-05-24: pitcher_strikeouts Over (LEAN 25% WR/12 picks), pitcher_hits_allowed Under (LEAN 18.2%/11 picks)
+# Removed 2026-05-26: pitcher_hits_allowed entirely (0W-4L live, dropped from V1_MARKETS; replaced by pitcher_outs)
+# pitcher_strikeouts Under retained — existing 6% MARKET_EDGE_MIN blocks unprofitable bucket; 6%+ is 54-37
 BET_WHITELIST: set[tuple[str, str]] = {
     ("pitcher_outs",         "Over"),
     ("batter_total_bases",   "Under"),
-    ("pitcher_hits_allowed", "Under"),
     ("pitcher_strikeouts",   "Under"),
-    ("pitcher_strikeouts",   "Over"),    # <2% and 2-4% profitable; 6%+ blocked by calibration
     ("batter_hits",          "Over"),    # <2% profitable; 4-6% and 6%+ blocked by calibration
     ("batter_hits",          "Under"),   # <2% profitable
     ("totals",               "Over"),
@@ -109,18 +110,23 @@ SCORE_LEAN        = 45   # score >= this -> LEAN (else NO_BET)
 
 # Per-market signal weights. Values are max points each signal can contribute.
 # Sum of each dict should equal 100.
+# Weights tuned 2026-05-24 via logistic regression on graded live picks.
+# BTB Under: AUC=0.483 (signals near-random vs structural baseline) — conservative adjustments only.
+#   hard_hit_pct and edge boosted (positive coefs); xwoba/park_tb_factor/season_slg trimmed (negative coefs).
+# K Under: AUC=0.533 — whiff_pct/ump_k_tendency/season_k_pct are real predictors;
+#   edge and weather have negative coefs (high edge on K Under = Bovada knows something); platoon_alignment neutral.
 SIGNAL_WEIGHTS: dict[str, dict[str, int]] = {
     "pitcher_strikeouts": {
-        "whiff_pct":         14,   # Statcast: whiff% -> direct K predictor
-        "platoon_alignment": 15,
-        "season_k_pct":      12,
-        "stuff_plus":        10,   # FanGraphs: Stuff+ -> pitch quality
-        "ump_k_tendency":    12,
-        "park_k_factor":      8,
-        "recent_k_rate":     10,
-        "opp_team_k_pct":     8,
-        "weather":            6,
-        "edge":               5,
+        "whiff_pct":         23,   # Statcast: whiff% — strongest K predictor (coef +0.214)
+        "ump_k_tendency":    20,   # ump K tendency — strong predictor (coef +0.193)
+        "season_k_pct":      18,   # season K% — strong predictor (coef +0.171)
+        "park_k_factor":     10,   # slightly positive (coef +0.038)
+        "platoon_alignment":  9,   # near-zero coef (-0.026) at n=195 — not enough to cut hard
+        "stuff_plus":         7,   # FanGraphs: Stuff+ — neutral (coef 0.000)
+        "recent_k_rate":      7,   # near-zero coef (-0.008) at n=195 — modest trim only
+        "opp_team_k_pct":     4,   # slightly negative (coef -0.002)
+        "edge":               2,   # harmful coef (-0.367) — selection effect from 6% floor; minimized
+        "weather":            0,   # harmful (coef -0.261); incoherent at 2pts, removed entirely
     },
     "pitcher_hits_allowed": {
         "recent_h9":         17,
@@ -144,16 +150,16 @@ SIGNAL_WEIGHTS: dict[str, dict[str, int]] = {
         "edge":               8,
     },
     "batter_total_bases": {
-        "xwoba":             13,   # Statcast: xwOBA -> contact quality
-        "barrel_pct":        12,   # Statcast: barrel% -> extra-base power
-        "sp_quality":        14,
-        "platoon_alignment": 12,
-        "hard_hit_pct":       8,   # Statcast: hard hit%
-        "recent_tb":         10,
-        "park_tb_factor":    10,
-        "season_slg":         8,
-        "weather_wind":       7,
-        "edge":               6,
+        "sp_quality":        14,   # neutral (coef +0.061) — kept, theoretically sound
+        "xwoba":             11,   # slightly negative (coef -0.033) — trimmed from 13, kept (Statcast)
+        "barrel_pct":        12,   # Statcast: barrel% — slightly positive (coef +0.054)
+        "platoon_alignment": 11,   # neutral (coef 0.000)
+        "hard_hit_pct":      11,   # Statcast: hard hit% — top positive signal (coef +0.119)
+        "recent_tb":          9,   # near-zero (coef +0.002)
+        "edge":               8,   # slightly positive + confirmed by bucket analysis
+        "park_tb_factor":     8,   # slightly negative (coef -0.046) — trimmed from 10
+        "weather_wind":       8,   # slightly positive (coef +0.034)
+        "season_slg":         8,   # coef -0.002 ≈ zero — insufficient evidence to cut; kept at 8
     },
     "batter_hits": {
         "xwoba":             14,   # Statcast: xwOBA -> contact quality
