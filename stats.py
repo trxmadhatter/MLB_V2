@@ -170,6 +170,16 @@ def fetch_pitcher_stats(player_id: int, season: int | None = None) -> dict | Non
         sea_ip_total = _ip_to_dec(sea.get("inningsPitched", "0"))
         season_ip_per_start = round(sea_ip_total / gs, 2) if sea_ip_total and gs and gs > 0 else None
 
+        hr  = _f(sea.get("homeRuns"))
+        bb  = _f(sea.get("baseOnBalls"))
+        hbp = _f(sea.get("hitBatsmen"))
+        k   = _f(sea.get("strikeOuts"))
+        ip  = _ip_to_dec(sea.get("inningsPitched", "0")) or None
+        if hr is not None and bb is not None and k is not None and ip:
+            season_fip = round((13 * hr + 3 * (bb + (hbp or 0)) - 2 * k) / ip + 3.18, 2)
+        else:
+            season_fip = None
+
         return {
             "recent_k":             _avg("strikeOuts"),
             "recent_h":             _avg("hits"),
@@ -179,6 +189,7 @@ def fetch_pitcher_stats(player_id: int, season: int | None = None) -> dict | Non
             "season_era":           _f(sea.get("era")),
             "season_whip":          _f(sea.get("whip")),
             "season_ip_per_start":  season_ip_per_start,
+            "season_fip":           season_fip,
         }
     except Exception:
         return None

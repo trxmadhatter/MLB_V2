@@ -334,13 +334,17 @@ def _score_pitcher_outs(
         else:
             add("opp_lineup_ops", 0.5, "opp_team unavailable")
 
-        # FanGraphs: xFIP — lower = better pitcher = more outs (benchmark 4.2, spread 0.6)
-        # Invert: for Outs Over, low xFIP is good -> use "Under" direction in rate signal
+        # xFIP: prefer FanGraphs; fall back to computed FIP from MLB Stats API.
+        # Both invert: low value = better pitcher = more outs → use "Under" direction.
         fg = get_pitcher_fangraphs(player_id, season)
         xfip = fg.get("xfip")
         flip_sel = "Under" if selection == "Over" else "Over"
-        add("xfip", _season_rate_signal(xfip, 4.2, flip_sel, 0.6),
-            f"xfip={xfip}")
+        if xfip is not None:
+            add("xfip", _season_rate_signal(xfip, 4.2, flip_sel, 0.6), f"xfip={xfip} (FG)")
+        else:
+            fip = stats.get("season_fip")
+            add("xfip", _season_rate_signal(fip, 4.2, flip_sel, 0.6),
+                f"xfip={fip} (FIP fallback)" if fip is not None else "xfip=unavailable")
 
         # SwStr%: prefer FanGraphs (decimal, e.g. 0.112); fall back to Statcast whiff_pct
         # (same concept, different denominator — pct scale, e.g. 28.5)
