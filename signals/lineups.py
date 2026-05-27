@@ -102,9 +102,23 @@ def get_game_data_for_date(date_str: str, season: int | None = None) -> dict:
                     break
 
             lineups = game.get("lineups", {})
-            lineup_confirmed = bool(
-                lineups.get("homePlayers") or lineups.get("awayPlayers")
-            )
+            home_players = lineups.get("homePlayers", [])
+            away_players = lineups.get("awayPlayers", [])
+            lineup_confirmed = bool(home_players or away_players)
+
+            def _lineup_positions(players: list) -> dict[int, int]:
+                """Return {player_id: batting_order_1_to_9} for confirmed lineup."""
+                positions = {}
+                for p in players:
+                    pid = p.get("id")
+                    order = p.get("battingOrder")
+                    if pid and order:
+                        try:
+                            # API encodes as 100, 200, … 900
+                            positions[int(pid)] = int(order) // 100
+                        except (TypeError, ValueError):
+                            pass
+                return positions
 
             key = (home_name.lower(), away_name.lower())
             result[key] = {
@@ -116,6 +130,8 @@ def get_game_data_for_date(date_str: str, season: int | None = None) -> dict:
                 "umpire_name":      ump_name,
                 "ump_k_tendency":   get_ump_k_tendency(ump_name),
                 "lineup_confirmed": lineup_confirmed,
+                "home_lineup":      _lineup_positions(home_players),
+                "away_lineup":      _lineup_positions(away_players),
             }
 
     return result

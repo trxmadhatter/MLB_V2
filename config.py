@@ -157,24 +157,26 @@ SIGNAL_WEIGHTS: dict[str, dict[str, int]] = {
         "barrel_pct":        12,   # Statcast: barrel% — slightly positive (coef +0.054)
         "platoon_alignment": 11,   # neutral (coef 0.000)
         "hard_hit_pct":      11,   # Statcast: hard hit% — top positive signal (coef +0.119)
-        "recent_tb":          9,   # near-zero (coef +0.002)
+        "recent_tb":          6,   # near-zero (coef +0.002); trimmed to fund batting_order
         "edge":               5,   # slightly positive + confirmed by bucket analysis
         "park_tb_factor":     8,   # slightly negative (coef -0.046) — trimmed from 10
         "weather_wind":       5,   # slightly positive (coef +0.034)
-        "season_slg":         8,   # coef -0.002 ≈ zero — insufficient evidence to cut; kept at 8
+        "season_slg":         6,   # coef -0.002 ≈ zero; trimmed to fund batting_order
         "h2h":                6,   # career H2H avg vs this pitcher (min 5 AB)
+        "batting_order":      5,   # team-confirmed lineup slot (3-5=power, 7-9=weak)
     },
     "batter_hits": {
         "xwoba":             14,   # Statcast: xwOBA -> contact quality
         "hard_hit_pct":      16,   # Statcast: hard hit% -> hits predictor
         "sp_quality":        16,
         "platoon_alignment": 12,
-        "recent_h":          10,
+        "recent_h":           7,   # trimmed to fund batting_order
         "park_hits_factor":  10,
-        "season_avg":         9,
+        "season_avg":         7,   # trimmed to fund batting_order
         "weather":            4,   # trimmed to fund h2h signal
         "edge":               3,   # trimmed to fund h2h signal
         "h2h":                6,   # career H2H avg vs this pitcher (min 5 AB)
+        "batting_order":      5,   # team-confirmed lineup slot (3-5=power, 7-9=weak)
     },
 }
 

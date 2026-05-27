@@ -63,6 +63,19 @@ def _weather_signal(weather: dict, selection: str) -> float:
     return raw if selection == "Over" else 1.0 - raw
 
 
+def _batting_order_signal(position: int | None, selection: str) -> float:
+    """
+    Batting order position -> 0-1 raw score for Over.
+    Slots 3-5 (cleanup) are best for production; 7-9 are weakest.
+    """
+    if position is None:
+        return 0.5
+    _order_raw = {1: 0.52, 2: 0.55, 3: 0.72, 4: 0.75, 5: 0.68,
+                  6: 0.48, 7: 0.38, 8: 0.32, 9: 0.28}
+    raw = _order_raw.get(position, 0.5)
+    return raw if selection == "Over" else 1.0 - raw
+
+
 def _recent_rate_signal(recent: float | None, point: float,
                         selection: str, margin: float = 0.5) -> float:
     """
@@ -503,6 +516,19 @@ def _score_batter(
                 add("h2h", 0.5, "h2h=<5 AB or unavailable")
         else:
             add("h2h", 0.5, "h2h=pitcher_id unknown")
+
+        # Batting order position (1-9). Positions 3-5 are power slots (good for Over);
+        # positions 7-9 are weak (good for Under). Falls back to 0.5 if lineup not confirmed.
+        bat_pos = None
+        if game_info and player_id:
+            pt = (player_team or "").lower()
+            ht = home_team.lower()
+            if pt and (pt in ht or ht in pt):
+                bat_pos = game_info.get("home_lineup", {}).get(player_id)
+            else:
+                bat_pos = game_info.get("away_lineup", {}).get(player_id)
+        add("batting_order", _batting_order_signal(bat_pos, selection),
+            f"batting_order={bat_pos}")
     else:
         # Emit market-specific fallbacks explicitly to avoid weight gaps (H-01)
         base_sigs = [
@@ -511,7 +537,7 @@ def _score_batter(
             "platoon_alignment",
         ]
         statcast_sigs = ["xwoba", "hard_hit_pct"] + (["barrel_pct"] if is_tb else [])
-        for sig in base_sigs + statcast_sigs + ["h2h"]:
+        for sig in base_sigs + statcast_sigs + ["h2h", "batting_order"]:
             add(sig, 0.5, "player_id unavailable")
 
     return breakdown
