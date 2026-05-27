@@ -306,13 +306,13 @@ def _print_summary(conn, pick_date: str, pulled_at: str) -> None:
     bets = conn.execute("""
         SELECT player_name, market_key, selection, point,
                bovada_price, bovada_break_even_prob, edge,
-               recommendation, signal_score, sim_prob
+               recommendation, signal_score, sim_prob, commence_time
         FROM daily_picks
         WHERE pick_date = ?
           AND recommendation IN ('LEAN', 'RECOMMENDED')
           AND sim_prob IS NOT NULL
           AND sim_prob >= bovada_break_even_prob
-        ORDER BY recommendation DESC, sim_prob DESC, edge DESC
+        ORDER BY commence_time ASC, recommendation DESC, sim_prob DESC, edge DESC
     """, (pick_date,)).fetchall()
 
     print(f"\n{'='*78}")
@@ -452,11 +452,11 @@ def _analyze_games(conn, pulled_at: str, today: str,
 def _print_game_summary(conn, pick_date: str) -> None:
     rows = conn.execute("""
         SELECT home_team, away_team, selection, point, bovada_price,
-               edge, signal_score, recommendation
+               edge, signal_score, recommendation, commence_time
         FROM daily_game_picks
         WHERE pick_date = ?
           AND recommendation IN ('LEAN', 'RECOMMENDED')
-        ORDER BY recommendation DESC, signal_score DESC
+        ORDER BY commence_time ASC, recommendation DESC, signal_score DESC
     """, (pick_date,)).fetchall()
 
     print(f"\n  GAME TOTALS — {pick_date}")
