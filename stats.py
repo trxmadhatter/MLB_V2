@@ -14,16 +14,18 @@ _all_players:           list[dict] | None       = None
 _team_stats_cache:      dict[str, dict] | None  = None
 _pitcher_gamelog_cache: dict[tuple, list[dict]] = {}
 _batter_gamelog_cache:  dict[tuple, list[dict]] = {}
+_h2h_cache:             dict[tuple, dict | None] = {}
 
 
 def _reset_caches() -> None:
     global _player_cache, _all_players, _team_stats_cache
-    global _pitcher_gamelog_cache, _batter_gamelog_cache
+    global _pitcher_gamelog_cache, _batter_gamelog_cache, _h2h_cache
     _player_cache.clear()
     _all_players           = None
     _team_stats_cache      = None
     _pitcher_gamelog_cache.clear()
     _batter_gamelog_cache.clear()
+    _h2h_cache.clear()
 
 
 def _fetch_pitcher_gamelog(player_id: int, season: int) -> list[dict]:
@@ -242,6 +244,63 @@ def fetch_batter_stats(player_id: int, season: int | None = None) -> dict | None
             "season_slg":         _f(sea.get("slg")),
         }
     except Exception:
+        return None
+
+
+def fetch_batter_vs_pitcher(batter_id: int, pitcher_id: int, season: int) -> dict | None:
+    """
+    Returns {ab, hits, hr, k, avg} for batter vs pitcher career (all seasons).
+    Returns None if fewer than 5 AB (too small to be meaningful).
+    Cached per (batter_id, pitcher_id, season).
+    """
+    key = (batter_id, pitcher_id, season)
+    if key in _h2h_cache:
+        return _h2h_cache[key]
+    try:
+        r = requests.get(
+            f"{_BASE}/people/{batter_id}/stats",
+            params={
+                "stats":             "vsPlayer",
+                "opposingPlayerId":  pitcher_id,
+                "group":             "hitting",
+                "gameType":          "R",
+            },
+            timeout=_TIMEOUT,
+        )
+        r.raise_for_status()
+        splits = r.json().get("stats", [{}])[0].get("splits", [])
+        if not splits:
+            _h2h_cache[key] = None
+            return None
+        st = splits[0].get("stat", {})
+
+        def _i(v):
+            try:
+                return int(v)
+            except (TypeError, ValueError):
+                return 0
+
+        def _f(v):
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                return None
+
+        ab = _i(st.get("atBats"))
+        if ab < 5:
+            _h2h_cache[key] = None
+            return None
+        result = {
+            "ab":   ab,
+            "hits": _i(st.get("hits")),
+            "hr":   _i(st.get("homeRuns")),
+            "k":    _i(st.get("strikeOuts")),
+            "avg":  _f(st.get("avg")),
+        }
+        _h2h_cache[key] = result
+        return result
+    except Exception:
+        _h2h_cache[key] = None
         return None
 
 

@@ -158,10 +158,11 @@ SIGNAL_WEIGHTS: dict[str, dict[str, int]] = {
         "platoon_alignment": 11,   # neutral (coef 0.000)
         "hard_hit_pct":      11,   # Statcast: hard hit% — top positive signal (coef +0.119)
         "recent_tb":          9,   # near-zero (coef +0.002)
-        "edge":               8,   # slightly positive + confirmed by bucket analysis
+        "edge":               5,   # slightly positive + confirmed by bucket analysis
         "park_tb_factor":     8,   # slightly negative (coef -0.046) — trimmed from 10
-        "weather_wind":       8,   # slightly positive (coef +0.034)
+        "weather_wind":       5,   # slightly positive (coef +0.034)
         "season_slg":         8,   # coef -0.002 ≈ zero — insufficient evidence to cut; kept at 8
+        "h2h":                6,   # career H2H avg vs this pitcher (min 5 AB)
     },
     "batter_hits": {
         "xwoba":             14,   # Statcast: xwOBA -> contact quality
@@ -171,8 +172,9 @@ SIGNAL_WEIGHTS: dict[str, dict[str, int]] = {
         "recent_h":          10,
         "park_hits_factor":  10,
         "season_avg":         9,
-        "weather":            7,
-        "edge":               6,
+        "weather":            4,   # trimmed to fund h2h signal
+        "edge":               3,   # trimmed to fund h2h signal
+        "h2h":                6,   # career H2H avg vs this pitcher (min 5 AB)
     },
 }
 

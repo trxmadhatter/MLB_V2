@@ -490,6 +490,19 @@ def _score_batter(
         hard_hit = sc.get("hard_hit_pct")
         add("hard_hit_pct", _season_rate_signal(hard_hit, 38.0, selection, 5.0),
             f"hard_hit_pct={hard_hit}")
+
+        # Batter vs pitcher H2H (career, min 5 AB). Benchmark .255 avg, spread 0.060.
+        pitcher_id = sp.get("id") if sp else None
+        if pitcher_id:
+            from stats import fetch_batter_vs_pitcher
+            h2h = fetch_batter_vs_pitcher(player_id, pitcher_id, season)
+            if h2h:
+                add("h2h", _season_rate_signal(h2h["avg"], 0.255, selection, 0.060),
+                    f"h2h={h2h['hits']}/{h2h['ab']} ({h2h['avg']:.3f})")
+            else:
+                add("h2h", 0.5, "h2h=<5 AB or unavailable")
+        else:
+            add("h2h", 0.5, "h2h=pitcher_id unknown")
     else:
         # Emit market-specific fallbacks explicitly to avoid weight gaps (H-01)
         base_sigs = [
@@ -498,7 +511,7 @@ def _score_batter(
             "platoon_alignment",
         ]
         statcast_sigs = ["xwoba", "hard_hit_pct"] + (["barrel_pct"] if is_tb else [])
-        for sig in base_sigs + statcast_sigs:
+        for sig in base_sigs + statcast_sigs + ["h2h"]:
             add(sig, 0.5, "player_id unavailable")
 
     return breakdown
