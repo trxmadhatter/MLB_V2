@@ -46,6 +46,29 @@ def _commence_date_pt(commence_time: str) -> str:
         return ""
 
 
+def _build_game_totals(conn, pulled_at: str, today: str) -> dict[tuple, float]:
+    """
+    Build {(home_team_lower, away_team_lower): point} from Bovada totals lines.
+    Used to pass game O/U context into pitcher scoring.
+    """
+    all_rows = [dict(r) for r in get_snapshots(conn, pulled_at)]
+    totals_rows = [
+        r for r in all_rows
+        if r["market_key"] == "totals"
+        and r["player_name"] == ""
+        and r["bookmaker_key"] in BOVADA_KEYS
+        and _commence_date_pt(r["commence_time"]) == today
+        and r["selection"] == "Over"   # Over and Under share same point
+        and (r.get("point") or 0) >= 7.0
+    ]
+    result: dict[tuple, float] = {}
+    for r in totals_rows:
+        key = (r["home_team"].lower(), r["away_team"].lower())
+        if key not in result:
+            result[key] = float(r["point"])
+    return result
+
+
 def _analyze(conn, pulled_at: str, today: str,
              game_data: dict | None = None) -> tuple[int, int]:
     """
@@ -53,6 +76,7 @@ def _analyze(conn, pulled_at: str, today: str,
     game_data: pre-fetched from lineups.get_game_data_for_date().
     Returns (picks_evaluated, no_bets_logged).
     """
+    game_totals = _build_game_totals(conn, pulled_at, today)
     rows = [dict(r) for r in get_snapshots(conn, pulled_at)]
     rows = [r for r in rows if r["player_name"] != ""]
     rows = [r for r in rows if _commence_date_pt(r["commence_time"]) == today]
@@ -128,6 +152,7 @@ def _analyze(conn, pulled_at: str, today: str,
             ev   = compute_ev(bov["price"], fair_prob)
 
             # Score pick with all signals
+            gt_key = (meta["home_team"].lower(), meta["away_team"].lower())
             sig_score, breakdown = score_pick(
                 player_name=player_name,
                 market_key=market_key,
@@ -138,6 +163,7 @@ def _analyze(conn, pulled_at: str, today: str,
                 edge=edge,
                 game_date=today,
                 game_data=game_data,
+                game_total=game_totals.get(gt_key),
             )
 
             rec = classify_by_score(sig_score, edge, market_key, selection,

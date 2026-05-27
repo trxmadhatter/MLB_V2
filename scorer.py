@@ -63,6 +63,20 @@ def _weather_signal(weather: dict, selection: str) -> float:
     return raw if selection == "Over" else 1.0 - raw
 
 
+def _game_total_signal(total: float | None, selection: str) -> float:
+    """
+    Game O/U total as implied run environment.
+    High total (>8.5) = run-heavy → bad for pitcher Outs Over, pitcher K Under.
+    Low total (<8.5) = pitcher's game → good for Outs Over.
+    Benchmark: 8.5, spread ±1.5 run.
+    """
+    if total is None:
+        return 0.5
+    # Low total = good for pitcher Outs Over → raw near 1.0
+    raw = _clamp(0.5 + (8.5 - total) / 3.0)   # 7.0->1.0, 8.5->0.5, 10.0->0.0
+    return raw if selection == "Over" else 1.0 - raw
+
+
 def _velo_trend_signal(trend: float | None, selection: str) -> float:
     """
     trend = recent_avg_velo - season_avg_velo (in mph).
@@ -351,6 +365,7 @@ def _score_pitcher_outs(
     game_info: dict | None,
     season: int,
     opp_team: str | None = None,
+    game_total: float | None = None,
 ) -> list[dict]:
     from stats import fetch_pitcher_stats, fetch_team_hitting
     from signals.fangraphs import get_pitcher_fangraphs
@@ -431,6 +446,11 @@ def _score_pitcher_outs(
         for sig in ("recent_ip", "season_ip", "opp_lineup_ops", "xfip", "swstr_pct",
                     "rest_days", "velo_trend"):
             add(sig, 0.5, "player_id unavailable")
+
+    # Game total: high total = run-heavy environment → fewer outs for pitcher.
+    # Applied regardless of player_id (game-level context).
+    add("game_total", _game_total_signal(game_total, selection),
+        f"game_total={game_total}" if game_total is not None else "game_total=unavailable")
 
     return breakdown
 
@@ -585,6 +605,7 @@ def score_pick(
     edge: float,
     game_date: str,
     game_data: dict | None = None,
+    game_total: float | None = None,
 ) -> tuple[int, list[dict]]:
     """
     Returns (score 0-100, breakdown list).
@@ -644,7 +665,7 @@ def score_pick(
         elif market_key == "pitcher_outs":
             breakdown = _score_pitcher_outs(
                 player_id, selection, point, edge, park, weather_data, game_info, season,
-                opp_team=opp_team)
+                opp_team=opp_team, game_total=game_total)
         elif market_key in ("batter_total_bases", "batter_hits"):
             breakdown = _score_batter(
                 player_id, market_key, selection, point, edge,

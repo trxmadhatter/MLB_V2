@@ -144,14 +144,15 @@ SIGNAL_WEIGHTS: dict[str, dict[str, int]] = {
     "pitcher_outs": {
         "recent_ip":         20,
         "xfip":              12,   # FanGraphs xFIP (falls back to computed FIP)
-        "opp_lineup_ops":    15,   # trimmed 1pt to fund velo_trend
+        "opp_lineup_ops":    14,   # trimmed to fund game_total
         "season_ip":         14,
         "swstr_pct":         10,   # FanGraphs SwStr% (falls back to Statcast whiff_pct)
         "park_run_factor":   12,
         "rest_days":          8,   # days since last start; fresh pitcher → more outs
-        "weather":            2,   # trimmed to fund velo_trend
-        "edge":               2,   # trimmed to fund velo_trend
+        "weather":            0,   # trimmed; minimal value after park/total context
+        "edge":               0,   # trimmed; minimal value in outs market
         "velo_trend":         5,   # recent 3-start avg vs season avg fastball velocity
+        "game_total":         5,   # implied game O/U; high total = run-heavy = fewer outs
     },
     "batter_total_bases": {
         "sp_quality":        14,   # neutral (coef +0.061) — kept, theoretically sound
