@@ -8,7 +8,7 @@ from datetime import datetime
 
 import logging
 
-from config import SIGNAL_WEIGHTS, SIGNAL_WEIGHTS_DEFAULT, SCORE_RECOMMENDED, SCORE_LEAN
+from config import SIGNAL_WEIGHTS, SCORE_RECOMMENDED, SCORE_LEAN
 from signals.parks import get_park
 from signals.weather import get_weather
 
@@ -295,6 +295,7 @@ def _score_pitcher_outs(
 ) -> list[dict]:
     from stats import fetch_pitcher_stats, fetch_team_hitting
     from signals.fangraphs import get_pitcher_fangraphs
+    from signals.statcast import get_pitcher_statcast
 
     weights = SIGNAL_WEIGHTS["pitcher_outs"]
     breakdown = []
@@ -306,9 +307,11 @@ def _score_pitcher_outs(
 
     add("edge", _edge_signal(edge), f"edge={edge:.1%}")
 
+    # HR-friendly parks (high hr_factor) mean fewer pitcher outs.
+    # We invert the selection so that high hr_factor scores low for Outs Over.
     rf = park.get("hr_factor", 100)
-    add("park_run_factor", _park_factor_signal(rf, "Under" if selection == "Over" else "Over"),
-        f"hr_factor={rf}")
+    flip_sel = "Under" if selection == "Over" else "Over"
+    add("park_run_factor", _park_factor_signal(rf, flip_sel), f"hr_factor={rf}")
 
     add("weather", _weather_signal(weather, selection),
         f"wind={weather.get('wind_speed_kph', 0):.0f}kph")
@@ -339,11 +342,17 @@ def _score_pitcher_outs(
         add("xfip", _season_rate_signal(xfip, 4.2, flip_sel, 0.6),
             f"xfip={xfip}")
 
-        # FanGraphs: SwStr% — decimal (e.g. 0.112); benchmark 0.112, spread 0.02
-        # High SwStr% = misses bats efficiently = longer outings
+        # SwStr%: prefer FanGraphs (decimal, e.g. 0.112); fall back to Statcast whiff_pct
+        # (same concept, different denominator — pct scale, e.g. 28.5)
         swstr = fg.get("swstr_pct")
-        add("swstr_pct", _season_rate_signal(swstr, 0.112, selection, 0.02),
-            f"swstr_pct={swstr}")
+        if swstr is not None:
+            add("swstr_pct", _season_rate_signal(swstr, 0.112, selection, 0.02),
+                f"swstr_pct={swstr} (FG)")
+        else:
+            sc = get_pitcher_statcast(player_id, season)
+            whiff = sc.get("whiff_pct")
+            add("swstr_pct", _season_rate_signal(whiff, 25.0, selection, 5.0),
+                f"swstr_pct={whiff} (Statcast whiff fallback)" if whiff is not None else "swstr_pct=unavailable")
     else:
         for sig in ("recent_ip", "season_ip", "opp_lineup_ops", "xfip", "swstr_pct"):
             add(sig, 0.5, "player_id unavailable")
@@ -370,7 +379,9 @@ def _score_batter(
     from signals.statcast import get_batter_statcast
 
     is_tb = market_key == "batter_total_bases"
-    weights = SIGNAL_WEIGHTS.get(market_key, SIGNAL_WEIGHTS_DEFAULT)
+    weights = SIGNAL_WEIGHTS.get(market_key)
+    if weights is None:
+        raise ValueError(f"No SIGNAL_WEIGHTS entry for market {market_key!r}")
     breakdown = []
 
     def add(signal, raw, note=""):

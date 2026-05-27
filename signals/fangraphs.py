@@ -14,6 +14,8 @@ _log     = logging.getLogger(__name__)
 
 # season -> {player_id -> metrics}
 _pitcher_cache: dict[int, dict[int, dict]] = {}
+# seasons where the fetch failed — skip retry within the same process
+_pitcher_failed: set[int] = set()
 
 
 def _f(v) -> float | None:
@@ -26,6 +28,8 @@ def _f(v) -> float | None:
 def _load_pitchers(season: int) -> dict[int, dict]:
     if season in _pitcher_cache:
         return _pitcher_cache[season]
+    if season in _pitcher_failed:
+        return {}
     result: dict[int, dict] = {}
     try:
         resp = requests.get(
@@ -82,6 +86,7 @@ def _load_pitchers(season: int) -> dict[int, dict]:
         _pitcher_cache[season] = result   # only cached on successful fetch
     except Exception as exc:
         _log.warning("Failed to load pitcher FanGraphs data for season %s: %s", season, exc)
+        _pitcher_failed.add(season)
     return _pitcher_cache.get(season, {})
 
 
@@ -92,3 +97,4 @@ def get_pitcher_fangraphs(player_id: int, season: int) -> dict:
 
 def reset_cache() -> None:
     _pitcher_cache.clear()
+    _pitcher_failed.clear()
