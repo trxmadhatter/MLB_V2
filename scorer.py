@@ -78,17 +78,14 @@ def _game_total_signal(total: float | None, selection: str) -> float:
     return raw if selection == "Over" else 1.0 - raw
 
 
-def _velo_trend_signal(trend: float | None, selection: str) -> float:
+def _velo_trend_signal(velo: float | None, selection: str) -> float:
     """
-    trend = recent_avg_velo - season_avg_velo (in mph).
-    +1 mph above avg → raw=0.6 (gaining velo, good for Over K/outs).
-    -1 mph below avg → raw=0.4 (losing velo, good for Under).
-    Capped at ±3 mph (rare beyond that, likely noise).
+    velo = season avg fastball speed (mph) from Baseball Savant leaderboard.
+    93 mph = midpoint; ±2 mph = one unit of scale.
+    95 mph → raw≈0.75 (hard thrower, good for K/outs Over).
+    91 mph → raw≈0.25 (soft thrower, bad for K/outs Over).
     """
-    if trend is None:
-        return 0.5
-    raw = _clamp(0.5 + trend / 6.0)   # ±3 mph maps to ±0.5 around 0.5
-    return raw if selection == "Over" else 1.0 - raw
+    return _season_rate_signal(velo, 93.0, selection, 2.0)
 
 
 def _batting_order_signal(position: int | None, selection: str) -> float:
@@ -257,13 +254,12 @@ def _score_pitcher_strikeouts(
         add("stuff_plus", _season_rate_signal(stuff, 100.0, selection, 15.0),
             f"stuff_plus={stuff}")
 
-        # Velocity trend: recent 3-start avg vs season avg fastball velo.
-        # Gaining velo → good for K Over; losing velo → good for K Under.
-        # trend=+1 mph above avg → raw=0.6; trend=-1 → raw=0.4
+        # Fastball velocity quality: hard throwers → good for K Over.
+        # 93 mph = midpoint; uses season leaderboard avg (no separate HTTP call).
         vt = fetch_pitcher_velo_trend(player_id, season)
-        trend = vt.get("trend")
-        add("velo_trend", _velo_trend_signal(trend, selection),
-            f"velo_trend={trend:+.1f}mph" if trend is not None else "velo_trend=unavailable")
+        velo = vt.get("fastball_velo")
+        add("velo_trend", _velo_trend_signal(velo, selection),
+            f"fastball_velo={velo:.1f}mph" if velo is not None else "fastball_velo=unavailable")
     else:
         for sig in ("recent_k_rate", "season_k_pct", "opp_team_k_pct",
                     "platoon_alignment", "whiff_pct", "stuff_plus", "velo_trend"):
@@ -436,11 +432,11 @@ def _score_pitcher_outs(
         rest = stats.get("rest_days")
         add("rest_days", _pitcher_rest_signal(rest, selection), f"rest_days={rest}")
 
-        # Velocity trend: gaining velo → good for Over outs (healthy/strong arm).
+        # Fastball velocity quality: hard throwers → good for outs Over (deeper starts).
         vt = fetch_pitcher_velo_trend(player_id, season)
-        trend = vt.get("trend")
-        add("velo_trend", _velo_trend_signal(trend, selection),
-            f"velo_trend={trend:+.1f}mph" if trend is not None else "velo_trend=unavailable")
+        velo = vt.get("fastball_velo")
+        add("velo_trend", _velo_trend_signal(velo, selection),
+            f"fastball_velo={velo:.1f}mph" if velo is not None else "fastball_velo=unavailable")
     else:
         for sig in ("recent_ip", "season_ip", "opp_lineup_ops", "xfip", "swstr_pct",
                     "rest_days", "velo_trend"):

@@ -16,8 +16,6 @@ _log     = logging.getLogger(__name__)
 # season -> {player_id -> metrics}
 _pitcher_cache: dict[int, dict[int, dict]] = {}
 _batter_cache:  dict[int, dict[int, dict]] = {}
-# (player_id, season) -> {"season_avg_velo": float|None, "recent_avg_velo": float|None, "trend": float|None}
-_velo_cache: dict[tuple, dict] = {}
 
 
 def _f(v) -> float | None:
@@ -25,6 +23,21 @@ def _f(v) -> float | None:
         return float(str(v).strip('"').strip())
     except (TypeError, ValueError):
         return None
+
+
+def _i(v) -> int:
+    try:
+        return int(str(v).strip('"').strip())
+    except (TypeError, ValueError):
+        return 0
+
+
+def _best_fastball_velo(ff_velo: float | None, n_ff: int,
+                        si_velo: float | None, n_si: int) -> float | None:
+    """Return the avg speed of whichever fastball type was thrown more."""
+    if n_ff >= n_si:
+        return ff_velo if n_ff > 0 else None
+    return si_velo if n_si > 0 else None
 
 
 def _load_pitchers(season: int) -> dict[int, dict]:
@@ -36,7 +49,7 @@ def _load_pitchers(season: int) -> dict[int, dict]:
             f"{_BASE}/leaderboard/custom",
             params={
                 "year": season, "type": "pitcher", "filter": "",
-                "selections": "whiff_percent,barrel_batted_rate,hard_hit_percent",
+                "selections": "whiff_percent,barrel_batted_rate,hard_hit_percent,n_ff,ff_avg_speed,n_si,si_avg_speed",
                 "minResults": 0, "minGroupSwing": 0, "csv": "true",
             },
             headers={"User-Agent": "Mozilla/5.0"},
@@ -50,9 +63,13 @@ def _load_pitchers(season: int) -> dict[int, dict]:
                 continue
             try:
                 result[int(pid)] = {
-                    "whiff_pct":    _f(row.get("whiff_percent")),
-                    "barrel_pct":   _f(row.get("barrel_batted_rate")),
-                    "hard_hit_pct": _f(row.get("hard_hit_percent")),
+                    "whiff_pct":     _f(row.get("whiff_percent")),
+                    "barrel_pct":    _f(row.get("barrel_batted_rate")),
+                    "hard_hit_pct":  _f(row.get("hard_hit_percent")),
+                    "fastball_velo": _best_fastball_velo(
+                        _f(row.get("ff_avg_speed")), _i(row.get("n_ff")),
+                        _f(row.get("si_avg_speed")), _i(row.get("n_si")),
+                    ),
                 }
             except (ValueError, TypeError):
                 pass
@@ -109,51 +126,17 @@ def get_batter_statcast(player_id: int, season: int) -> dict:
 
 def fetch_pitcher_velo_trend(player_id: int, season: int) -> dict:
     """
-    Fetch per-start avg fastball velocity from Baseball Savant career game log chart.
-    Returns {season_avg_velo, recent_avg_velo, trend} where trend = recent - season_avg.
-    recent = avg of last 3 starts. Falls back to {} on error.
-    Cached per (player_id, season).
+    Return {"fastball_velo": float} from the season leaderboard, or {} if unavailable.
+    Uses the cached pitcher leaderboard (no extra HTTP call).
+    The Baseball Savant per-start chart endpoint returns 404 and cannot be used.
     """
-    key = (player_id, season)
-    if key in _velo_cache:
-        return _velo_cache[key]
-    try:
-        resp = requests.get(
-            f"{_BASE}/player-services/career-game-log-chart",
-            params={"player_id": player_id, "position": 1,
-                    "chartType": "velocity", "season": season},
-            headers={"User-Agent": "Mozilla/5.0",
-                     "Referer": f"{_BASE}/savant-player/{player_id}"},
-            timeout=_TIMEOUT,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        # Expected: {"chart_data": [{"game_date": "YYYY-MM-DD", "y": float}, ...]}
-        chart = data.get("chart_data", []) if isinstance(data, dict) else []
-        if not chart:
-            _velo_cache[key] = {}
-            return {}
-        velos = [v for pt in chart for v in (_f(pt.get("y")),) if v is not None]
-        if len(velos) < 3:
-            _velo_cache[key] = {}
-            return {}
-        season_avg = round(sum(velos) / len(velos), 1)
-        recent_avg = round(sum(velos[-3:]) / 3, 1)
-        result = {
-            "season_avg_velo": season_avg,
-            "recent_avg_velo": recent_avg,
-            "trend":           round(recent_avg - season_avg, 1),
-        }
-        _velo_cache[key] = result
-        return result
-    except Exception as exc:
-        _log.debug("Velocity trend fetch failed for player %s season %s: %s",
-                   player_id, season, exc)
-        _velo_cache[key] = {}
+    data = _load_pitchers(season).get(player_id, {})
+    velo = data.get("fastball_velo")
+    if velo is None:
         return {}
+    return {"fastball_velo": velo}
 
 
 def reset_cache() -> None:
     _pitcher_cache.clear()
     _batter_cache.clear()
-    _velo_cache.clear()
