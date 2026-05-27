@@ -118,15 +118,12 @@ def test_analyze_games_skips_missing_bovada_side():
 # ---------------------------------------------------------------------------
 
 def test_print_game_summary_no_picks(capsys):
-    from db import get_conn, init_db
     from run_daily import _print_game_summary
 
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    init_db(conn)
+    conn = MagicMock()
+    conn.execute.return_value.fetchall.return_value = []
 
     _print_game_summary(conn, "2026-05-17")
-    conn.close()
 
     captured = capsys.readouterr()
     assert "No game total picks today." in captured.out

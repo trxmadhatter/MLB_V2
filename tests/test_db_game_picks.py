@@ -1,20 +1,29 @@
-import sqlite3
 import pytest
-from db import get_conn, init_db, upsert_game_pick, get_pending_game_picks, update_game_pick_result, get_today_game_picks
+from db import get_conn, upsert_game_pick, get_pending_game_picks, update_game_pick_result, get_today_game_picks
 
-@pytest.fixture
-def conn(tmp_path):
-    db = tmp_path / "test.db"
-    c = get_conn(db)
-    init_db(c)
+_TEST_DATE = "1990-01-01"   # date guaranteed absent from live DB
+
+@pytest.fixture(scope="module")
+def conn():
+    c = get_conn()
     yield c
+    c.execute("DELETE FROM daily_game_picks WHERE pick_date = ?", (_TEST_DATE,))
+    c.commit()
     c.close()
 
+
+@pytest.fixture(autouse=True)
+def clean_game_picks(conn):
+    """Wipe test rows before each test so tests don't see each other's data."""
+    conn.execute("DELETE FROM daily_game_picks WHERE pick_date = ?", (_TEST_DATE,))
+    conn.commit()
+    yield
+
 _PICK = {
-    "pick_date": "2026-05-17",
-    "pulled_at": "2026-05-17T15:00:00Z",
-    "event_id": "evt1",
-    "commence_time": "2026-05-17T18:00:00Z",
+    "pick_date": _TEST_DATE,
+    "pulled_at": "1990-01-01T15:00:00Z",
+    "event_id": "TEST_evt1",
+    "commence_time": "1990-01-01T18:00:00Z",
     "home_team": "New York Yankees",
     "away_team": "Boston Red Sox",
     "market_key": "totals",
@@ -33,7 +42,7 @@ _PICK = {
 
 def test_upsert_and_retrieve(conn):
     upsert_game_pick(conn, _PICK)
-    rows = get_today_game_picks(conn, "2026-05-17")
+    rows = get_today_game_picks(conn, _TEST_DATE)
     assert len(rows) == 1
     assert rows[0]["selection"] == "Over"
     assert rows[0]["result"] == "PENDING"
@@ -42,20 +51,20 @@ def test_upsert_updates_on_conflict(conn):
     upsert_game_pick(conn, _PICK)
     updated = {**_PICK, "edge": 0.05, "recommendation": "RECOMMENDED"}
     upsert_game_pick(conn, updated)
-    rows = get_today_game_picks(conn, "2026-05-17")
+    rows = get_today_game_picks(conn, _TEST_DATE)
     assert len(rows) == 1
     assert rows[0]["recommendation"] == "RECOMMENDED"
 
 def test_get_pending_game_picks(conn):
     upsert_game_pick(conn, _PICK)
-    pending = get_pending_game_picks(conn, "2026-05-17")
+    pending = get_pending_game_picks(conn, _TEST_DATE)
     assert len(pending) == 1
 
 def test_update_game_pick_result(conn):
     upsert_game_pick(conn, _PICK)
-    pick_id = get_today_game_picks(conn, "2026-05-17")[0]["id"]
+    pick_id = get_today_game_picks(conn, _TEST_DATE)[0]["id"]
     update_game_pick_result(conn, pick_id, "WIN", 5, 4, 9.0, 0.909)
-    rows = get_today_game_picks(conn, "2026-05-17")
+    rows = get_today_game_picks(conn, _TEST_DATE)
     assert rows[0]["result"] == "WIN"
     assert rows[0]["home_runs"] == 5
     assert rows[0]["away_runs"] == 4
@@ -63,7 +72,7 @@ def test_update_game_pick_result(conn):
 
 def test_pending_excludes_graded(conn):
     upsert_game_pick(conn, _PICK)
-    pick_id = get_today_game_picks(conn, "2026-05-17")[0]["id"]
+    pick_id = get_today_game_picks(conn, _TEST_DATE)[0]["id"]
     update_game_pick_result(conn, pick_id, "WIN", 5, 4, 9.0, 0.909)
-    pending = get_pending_game_picks(conn, "2026-05-17")
+    pending = get_pending_game_picks(conn, _TEST_DATE)
     assert len(pending) == 0

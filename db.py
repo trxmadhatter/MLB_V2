@@ -51,6 +51,10 @@ class PgConn:
         import psycopg2
         import psycopg2.extras
         self._conn = psycopg2.connect(dsn, cursor_factory=psycopg2.extras.RealDictCursor)
+        # Prevent any single statement from blocking indefinitely (e.g. due to a lock)
+        with self._conn.cursor() as _c:
+            _c.execute("SET statement_timeout = '30s'")
+        self._conn.commit()
 
     def execute(self, sql: str, params=()):
         sql = sql.replace("?", "%s")
@@ -111,6 +115,10 @@ def get_conn(db_path=None) -> PgConn:
         raise RuntimeError(
             "DATABASE_URL is not set. Add it to .env or export it as an environment variable."
         )
+    # Append connect_timeout if not already specified so callers never hang forever
+    if "connect_timeout" not in dsn:
+        sep = "&" if "?" in dsn else "?"
+        dsn = f"{dsn}{sep}connect_timeout=15"
     return PgConn(dsn)
 
 

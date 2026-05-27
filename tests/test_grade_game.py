@@ -1,7 +1,7 @@
 from unittest.mock import patch, MagicMock
 import pytest
 from grade import get_game_scores, grade_pending_game_picks
-from db import get_conn, init_db, upsert_game_pick, get_today_game_picks
+from db import get_conn, upsert_game_pick, get_today_game_picks
 
 _MOCK_SCHEDULE = {
     "dates": [{
@@ -65,20 +65,30 @@ class TestGetGameScores:
         assert results == []
 
 
-@pytest.fixture
-def conn(tmp_path):
-    db = tmp_path / "test.db"
-    c = get_conn(db)
-    init_db(c)
+_TEST_DATE = "1990-01-02"   # date guaranteed absent from live DB
+
+@pytest.fixture(scope="module")
+def conn():
+    c = get_conn()
     yield c
+    c.execute("DELETE FROM daily_game_picks WHERE pick_date = ?", (_TEST_DATE,))
+    c.commit()
     c.close()
 
 
+@pytest.fixture(autouse=True)
+def clean_game_picks(conn):
+    """Wipe test rows before each test so tests don't see each other's data."""
+    conn.execute("DELETE FROM daily_game_picks WHERE pick_date = ?", (_TEST_DATE,))
+    conn.commit()
+    yield
+
+
 _PICK = {
-    "pick_date": "2026-05-16",
-    "pulled_at": "2026-05-16T15:00:00Z",
-    "event_id": "evt1",
-    "commence_time": "2026-05-16T18:00:00Z",
+    "pick_date": _TEST_DATE,
+    "pulled_at": "1990-01-02T15:00:00Z",
+    "event_id": "TEST_evt1",
+    "commence_time": "1990-01-02T18:00:00Z",
     "home_team": "New York Yankees",
     "away_team": "Boston Red Sox",
     "market_key": "totals",
@@ -100,9 +110,9 @@ class TestGradePendingGamePicks:
     def test_over_loss_graded(self, conn):
         upsert_game_pick(conn, _PICK)
         with patch("grade.requests.get", return_value=_mock_get(_MOCK_SCHEDULE)):
-            graded = grade_pending_game_picks(conn, "2026-05-16")
+            graded = grade_pending_game_picks(conn, _TEST_DATE)
         assert graded == 1
-        row = get_today_game_picks(conn, "2026-05-16")[0]
+        row = get_today_game_picks(conn, _TEST_DATE)[0]
         assert row["result"] == "LOSS"    # 5+3=8 < 8.5 → Over loses
         assert row["actual_total"] == 8.0
 
@@ -110,13 +120,13 @@ class TestGradePendingGamePicks:
         pick = {**_PICK, "home_team": "Houston Astros", "away_team": "Texas Rangers"}
         upsert_game_pick(conn, pick)
         with patch("grade.requests.get", return_value=_mock_get(_MOCK_SCHEDULE)):
-            graded = grade_pending_game_picks(conn, "2026-05-16")
+            graded = grade_pending_game_picks(conn, _TEST_DATE)
         assert graded == 0
-        row = get_today_game_picks(conn, "2026-05-16")[0]
+        row = get_today_game_picks(conn, _TEST_DATE)[0]
         assert row["result"] == "PENDING"
 
     def test_api_failure_leaves_pending(self, conn):
         upsert_game_pick(conn, _PICK)
         with patch("grade.requests.get", side_effect=Exception("timeout")):
-            graded = grade_pending_game_picks(conn, "2026-05-16")
+            graded = grade_pending_game_picks(conn, _TEST_DATE)
         assert graded == 0

@@ -18,11 +18,11 @@ ALL_PLAYERS = {"people": [
 ]}
 
 PITCHER_GAMELOG = {"stats": [{"splits": [
-    {"stat": {"strikeOuts": 8, "hits": 3, "earnedRuns": 1, "inningsPitched": "6.0"}},
-    {"stat": {"strikeOuts": 6, "hits": 5, "earnedRuns": 2, "inningsPitched": "5.2"}},
-    {"stat": {"strikeOuts": 9, "hits": 4, "earnedRuns": 0, "inningsPitched": "7.0"}},
-    {"stat": {"strikeOuts": 7, "hits": 6, "earnedRuns": 3, "inningsPitched": "5.0"}},
-    {"stat": {"strikeOuts": 5, "hits": 4, "earnedRuns": 2, "inningsPitched": "6.1"}},
+    {"date": "2026-04-10", "stat": {"gamesStarted": 1, "strikeOuts": 8, "hits": 3, "earnedRuns": 1, "inningsPitched": "6.0"}},
+    {"date": "2026-04-15", "stat": {"gamesStarted": 1, "strikeOuts": 6, "hits": 5, "earnedRuns": 2, "inningsPitched": "5.2"}},
+    {"date": "2026-04-20", "stat": {"gamesStarted": 1, "strikeOuts": 9, "hits": 4, "earnedRuns": 0, "inningsPitched": "7.0"}},
+    {"date": "2026-04-25", "stat": {"gamesStarted": 1, "strikeOuts": 7, "hits": 6, "earnedRuns": 3, "inningsPitched": "5.0"}},
+    {"date": "2026-04-30", "stat": {"gamesStarted": 1, "strikeOuts": 5, "hits": 4, "earnedRuns": 2, "inningsPitched": "6.1"}},
 ]}]}
 
 PITCHER_SEASON = {"stats": [{"splits": [{"stat": {
