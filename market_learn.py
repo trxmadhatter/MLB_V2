@@ -93,7 +93,7 @@ def load_calibration(path: Path = CALIBRATION_PATH) -> list[dict]:
         return []
 
 
-def compute_live_calibration(live_conn: sqlite3.Connection) -> list[dict]:
+def compute_live_calibration(live_conn) -> list[dict]:
     """
     Same bucketing as compute_calibration() but reads from the live
     daily_picks and daily_game_picks tables instead of the backtest DB.
