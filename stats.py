@@ -40,7 +40,7 @@ def _fetch_pitcher_gamelog(player_id: int, season: int) -> list[dict]:
             splits = r.json().get("stats", [{}])[0].get("splits", [])
             _pitcher_gamelog_cache[key] = [
                 {"_date": s.get("date"), **s["stat"]} for s in splits
-                if float(s["stat"].get("inningsPitched", "0") or "0") >= 1.0
+                if int(s["stat"].get("gamesStarted", 0)) >= 1
             ]
         except Exception:
             _pitcher_gamelog_cache[key] = []

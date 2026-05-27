@@ -559,6 +559,10 @@ def score_pick(
         else:
             opp_team = game_info.get("home_team")   # pitcher on away team, faces home lineup
 
+    # Guard: batter markets must have a SIGNAL_WEIGHTS entry — fail loud before entering the try block
+    if market_key in ("batter_total_bases", "batter_hits") and SIGNAL_WEIGHTS.get(market_key) is None:
+        raise ValueError(f"No SIGNAL_WEIGHTS entry for market {market_key!r}")
+
     try:
         if market_key == "pitcher_strikeouts":
             breakdown = _score_pitcher_strikeouts(
