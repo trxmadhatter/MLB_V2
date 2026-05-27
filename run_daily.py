@@ -210,8 +210,17 @@ def _print_one_sided(conn, pulled_at: str) -> None:
             AND nb.point         = b.point
             AND nb.bookmaker_key != b.bookmaker_key
         WHERE b.pulled_at = ? AND b.bookmaker_key = 'bovada'
+          AND NOT EXISTS (
+              SELECT 1 FROM props_snapshots opp
+              WHERE opp.pulled_at     = b.pulled_at
+                AND opp.event_id      = b.event_id
+                AND opp.market_key    = b.market_key
+                AND opp.player_name   = b.player_name
+                AND opp.point         = b.point
+                AND opp.bookmaker_key = 'bovada'
+                AND opp.selection    != b.selection
+          )
         GROUP BY b.event_id, b.market_key, b.player_name, b.point, b.selection, b.price
-        HAVING COUNT(DISTINCT b.selection) = 1
         ORDER BY other_books DESC, b.market_key, b.player_name
     """, (pulled_at,)).fetchall()
 
