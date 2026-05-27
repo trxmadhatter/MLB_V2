@@ -89,6 +89,25 @@ def _era_signal(era: float | None, selection: str) -> float:
     return normalized if selection == "Over" else 1.0 - normalized
 
 
+def _pitcher_rest_signal(rest_days: int | None, selection: str) -> float:
+    """
+    Fresher pitcher → better performance.
+    Caller inverts selection for markets where fresh = fewer (e.g. hits_allowed Under).
+    3 days: short rest (bad). 4: standard. 5: slight benefit. 6+: rust/injury return.
+    """
+    if rest_days is None:
+        return 0.5
+    if rest_days <= 3:
+        raw = 0.2
+    elif rest_days == 4:
+        raw = 0.5
+    elif rest_days == 5:
+        raw = 0.65
+    else:
+        raw = 0.45  # 6+ days: possible rust or injury return
+    return raw if selection == "Over" else 1.0 - raw
+
+
 def _season_rate_signal(rate: float | None, benchmark: float,
                         selection: str, spread: float = 0.05) -> float:
     """Generic: how does season rate compare to a benchmark?"""
@@ -274,9 +293,14 @@ def _score_pitcher_hits_allowed(
         barrel = sc.get("barrel_pct")
         add("barrel_pct", _season_rate_signal(barrel, 8.0, selection, 2.0),
             f"barrel_pct={barrel}")
+
+        # Rest days: fresh pitcher → fewer hits → good for Under. Invert selection.
+        rest = stats.get("rest_days")
+        flip_sel = "Under" if selection == "Over" else "Over"
+        add("rest_days", _pitcher_rest_signal(rest, flip_sel), f"rest_days={rest}")
     else:
         for sig in ("recent_h9", "season_whip", "opp_team_avg",
-                    "platoon_alignment", "hard_hit_pct", "barrel_pct"):
+                    "platoon_alignment", "hard_hit_pct", "barrel_pct", "rest_days"):
             add(sig, 0.5, "player_id unavailable")
 
     return breakdown
@@ -357,8 +381,12 @@ def _score_pitcher_outs(
             whiff = sc.get("whiff_pct")
             add("swstr_pct", _season_rate_signal(whiff, 25.0, selection, 5.0),
                 f"swstr_pct={whiff} (Statcast whiff fallback)" if whiff is not None else "swstr_pct=unavailable")
+
+        # Rest days: fresh pitcher → goes deeper → good for Over outs.
+        rest = stats.get("rest_days")
+        add("rest_days", _pitcher_rest_signal(rest, selection), f"rest_days={rest}")
     else:
-        for sig in ("recent_ip", "season_ip", "opp_lineup_ops", "xfip", "swstr_pct"):
+        for sig in ("recent_ip", "season_ip", "opp_lineup_ops", "xfip", "swstr_pct", "rest_days"):
             add(sig, 0.5, "player_id unavailable")
 
     return breakdown

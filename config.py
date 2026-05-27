@@ -136,18 +136,20 @@ SIGNAL_WEIGHTS: dict[str, dict[str, int]] = {
         "park_hits_factor":  13,
         "season_whip":       11,
         "platoon_alignment": 10,
-        "weather":            7,
-        "edge":               5,
+        "rest_days":          6,   # days since last start; fresh pitcher → fewer hits
+        "weather":            4,
+        "edge":               2,
     },
     "pitcher_outs": {
         "recent_ip":         20,
-        "xfip":              12,   # FanGraphs: xFIP -> true pitching skill
+        "xfip":              12,   # FanGraphs xFIP (falls back to computed FIP)
         "opp_lineup_ops":    16,
         "season_ip":         14,
-        "swstr_pct":         10,   # FanGraphs: SwStr% -> efficiency
+        "swstr_pct":         10,   # FanGraphs SwStr% (falls back to Statcast whiff_pct)
         "park_run_factor":   12,
-        "weather":            8,
-        "edge":               8,
+        "rest_days":          8,   # days since last start; fresh pitcher → more outs
+        "weather":            4,
+        "edge":               4,
     },
     "batter_total_bases": {
         "sp_quality":        14,   # neutral (coef +0.061) — kept, theoretically sound

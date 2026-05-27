@@ -39,7 +39,7 @@ def _fetch_pitcher_gamelog(player_id: int, season: int) -> list[dict]:
             r.raise_for_status()
             splits = r.json().get("stats", [{}])[0].get("splits", [])
             _pitcher_gamelog_cache[key] = [
-                s["stat"] for s in splits
+                {"_date": s.get("date"), **s["stat"]} for s in splits
                 if float(s["stat"].get("inningsPitched", "0") or "0") >= 1.0
             ]
         except Exception:
@@ -170,6 +170,16 @@ def fetch_pitcher_stats(player_id: int, season: int | None = None) -> dict | Non
         sea_ip_total = _ip_to_dec(sea.get("inningsPitched", "0"))
         season_ip_per_start = round(sea_ip_total / gs, 2) if sea_ip_total and gs and gs > 0 else None
 
+        last_date_str = started[-1].get("_date") if started else None
+        if last_date_str:
+            try:
+                last_date = datetime.strptime(last_date_str, "%Y-%m-%d").date()
+                rest_days = (datetime.now().date() - last_date).days
+            except (ValueError, TypeError):
+                rest_days = None
+        else:
+            rest_days = None
+
         hr  = _f(sea.get("homeRuns"))
         bb  = _f(sea.get("baseOnBalls"))
         hbp = _f(sea.get("hitBatsmen"))
@@ -190,6 +200,7 @@ def fetch_pitcher_stats(player_id: int, season: int | None = None) -> dict | Non
             "season_whip":          _f(sea.get("whip")),
             "season_ip_per_start":  season_ip_per_start,
             "season_fip":           season_fip,
+            "rest_days":            rest_days,
         }
     except Exception:
         return None
