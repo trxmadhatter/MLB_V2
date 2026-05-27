@@ -63,6 +63,19 @@ def _weather_signal(weather: dict, selection: str) -> float:
     return raw if selection == "Over" else 1.0 - raw
 
 
+def _velo_trend_signal(trend: float | None, selection: str) -> float:
+    """
+    trend = recent_avg_velo - season_avg_velo (in mph).
+    +1 mph above avg → raw=0.6 (gaining velo, good for Over K/outs).
+    -1 mph below avg → raw=0.4 (losing velo, good for Under).
+    Capped at ±3 mph (rare beyond that, likely noise).
+    """
+    if trend is None:
+        return 0.5
+    raw = _clamp(0.5 + trend / 6.0)   # ±3 mph maps to ±0.5 around 0.5
+    return raw if selection == "Over" else 1.0 - raw
+
+
 def _batting_order_signal(position: int | None, selection: str) -> float:
     """
     Batting order position -> 0-1 raw score for Over.
@@ -228,9 +241,18 @@ def _score_pitcher_strikeouts(
         stuff = fg.get("stuff_plus")
         add("stuff_plus", _season_rate_signal(stuff, 100.0, selection, 15.0),
             f"stuff_plus={stuff}")
+
+        # Velocity trend: recent 3-start avg vs season avg fastball velo.
+        # Gaining velo → good for K Over; losing velo → good for K Under.
+        # trend=+1 mph above avg → raw=0.6; trend=-1 → raw=0.4
+        from signals.statcast import fetch_pitcher_velo_trend
+        vt = fetch_pitcher_velo_trend(player_id, season)
+        trend = vt.get("trend")
+        add("velo_trend", _velo_trend_signal(trend, selection),
+            f"velo_trend={trend:+.1f}mph" if trend is not None else "velo_trend=unavailable")
     else:
         for sig in ("recent_k_rate", "season_k_pct", "opp_team_k_pct",
-                    "platoon_alignment", "whiff_pct", "stuff_plus"):
+                    "platoon_alignment", "whiff_pct", "stuff_plus", "velo_trend"):
             add(sig, 0.5, "player_id unavailable")
 
     return breakdown
@@ -398,8 +420,16 @@ def _score_pitcher_outs(
         # Rest days: fresh pitcher → goes deeper → good for Over outs.
         rest = stats.get("rest_days")
         add("rest_days", _pitcher_rest_signal(rest, selection), f"rest_days={rest}")
+
+        # Velocity trend: gaining velo → good for Over outs (healthy/strong arm).
+        from signals.statcast import fetch_pitcher_velo_trend
+        vt = fetch_pitcher_velo_trend(player_id, season)
+        trend = vt.get("trend")
+        add("velo_trend", _velo_trend_signal(trend, selection),
+            f"velo_trend={trend:+.1f}mph" if trend is not None else "velo_trend=unavailable")
     else:
-        for sig in ("recent_ip", "season_ip", "opp_lineup_ops", "xfip", "swstr_pct", "rest_days"):
+        for sig in ("recent_ip", "season_ip", "opp_lineup_ops", "xfip", "swstr_pct",
+                    "rest_days", "velo_trend"):
             add(sig, 0.5, "player_id unavailable")
 
     return breakdown

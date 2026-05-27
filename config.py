@@ -124,9 +124,10 @@ SIGNAL_WEIGHTS: dict[str, dict[str, int]] = {
         "platoon_alignment":  9,   # near-zero coef (-0.026) at n=195 — not enough to cut hard
         "stuff_plus":         7,   # FanGraphs: Stuff+ — neutral (coef 0.000)
         "recent_k_rate":      7,   # near-zero coef (-0.008) at n=195 — modest trim only
-        "opp_team_k_pct":     4,   # slightly negative (coef -0.002)
-        "edge":               2,   # harmful coef (-0.367) — selection effect from 6% floor; minimized
-        "weather":            0,   # harmful (coef -0.261); incoherent at 2pts, removed entirely
+        "opp_team_k_pct":     1,   # slightly negative (coef -0.002); trimmed to fund velo_trend
+        "edge":               0,   # harmful coef (-0.367); zeroed to fund velo_trend
+        "weather":            0,   # harmful (coef -0.261); removed entirely
+        "velo_trend":         5,   # recent 3-start avg vs season avg fastball velocity
     },
     "pitcher_hits_allowed": {
         "recent_h9":         17,
@@ -143,13 +144,14 @@ SIGNAL_WEIGHTS: dict[str, dict[str, int]] = {
     "pitcher_outs": {
         "recent_ip":         20,
         "xfip":              12,   # FanGraphs xFIP (falls back to computed FIP)
-        "opp_lineup_ops":    16,
+        "opp_lineup_ops":    15,   # trimmed 1pt to fund velo_trend
         "season_ip":         14,
         "swstr_pct":         10,   # FanGraphs SwStr% (falls back to Statcast whiff_pct)
         "park_run_factor":   12,
         "rest_days":          8,   # days since last start; fresh pitcher → more outs
-        "weather":            4,
-        "edge":               4,
+        "weather":            2,   # trimmed to fund velo_trend
+        "edge":               2,   # trimmed to fund velo_trend
+        "velo_trend":         5,   # recent 3-start avg vs season avg fastball velocity
     },
     "batter_total_bases": {
         "sp_quality":        14,   # neutral (coef +0.061) — kept, theoretically sound

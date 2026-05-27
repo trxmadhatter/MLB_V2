@@ -16,6 +16,8 @@ _log     = logging.getLogger(__name__)
 # season -> {player_id -> metrics}
 _pitcher_cache: dict[int, dict[int, dict]] = {}
 _batter_cache:  dict[int, dict[int, dict]] = {}
+# (player_id, season) -> {"season_avg_velo": float|None, "recent_avg_velo": float|None, "trend": float|None}
+_velo_cache: dict[tuple, dict] = {}
 
 
 def _f(v) -> float | None:
@@ -105,6 +107,53 @@ def get_batter_statcast(player_id: int, season: int) -> dict:
     return _load_batters(season).get(player_id, {})
 
 
+def fetch_pitcher_velo_trend(player_id: int, season: int) -> dict:
+    """
+    Fetch per-start avg fastball velocity from Baseball Savant career game log chart.
+    Returns {season_avg_velo, recent_avg_velo, trend} where trend = recent - season_avg.
+    recent = avg of last 3 starts. Falls back to {} on error.
+    Cached per (player_id, season).
+    """
+    key = (player_id, season)
+    if key in _velo_cache:
+        return _velo_cache[key]
+    try:
+        resp = requests.get(
+            f"{_BASE}/player-services/career-game-log-chart",
+            params={"player_id": player_id, "position": 1,
+                    "chartType": "velocity", "season": season},
+            headers={"User-Agent": "Mozilla/5.0",
+                     "Referer": f"{_BASE}/savant-player/{player_id}"},
+            timeout=_TIMEOUT,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        # Expected: {"chart_data": [{"game_date": "YYYY-MM-DD", "y": float}, ...]}
+        chart = data.get("chart_data", []) if isinstance(data, dict) else []
+        if not chart:
+            _velo_cache[key] = {}
+            return {}
+        velos = [float(pt["y"]) for pt in chart if pt.get("y") is not None]
+        if len(velos) < 3:
+            _velo_cache[key] = {}
+            return {}
+        season_avg = round(sum(velos) / len(velos), 1)
+        recent_avg = round(sum(velos[-3:]) / 3, 1)
+        result = {
+            "season_avg_velo": season_avg,
+            "recent_avg_velo": recent_avg,
+            "trend":           round(recent_avg - season_avg, 1),
+        }
+        _velo_cache[key] = result
+        return result
+    except Exception as exc:
+        _log.debug("Velocity trend fetch failed for player %s season %s: %s",
+                   player_id, season, exc)
+        _velo_cache[key] = {}
+        return {}
+
+
 def reset_cache() -> None:
     _pitcher_cache.clear()
     _batter_cache.clear()
+    _velo_cache.clear()
