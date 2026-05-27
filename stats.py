@@ -43,6 +43,7 @@ def _fetch_pitcher_gamelog(player_id: int, season: int) -> list[dict]:
             _pitcher_gamelog_cache[key] = [
                 {"_date": s.get("date"), **s["stat"]} for s in splits
                 if int(s["stat"].get("gamesStarted", 0)) >= 1
+                and float(s["stat"].get("inningsPitched", "0") or "0") >= 0.1
             ]
         except Exception:
             _pitcher_gamelog_cache[key] = []
@@ -251,9 +252,10 @@ def fetch_batter_vs_pitcher(batter_id: int, pitcher_id: int, season: int) -> dic
     """
     Returns {ab, hits, hr, k, avg} for batter vs pitcher career (all seasons).
     Returns None if fewer than 5 AB (too small to be meaningful).
-    Cached per (batter_id, pitcher_id, season).
+    Cached per (batter_id, pitcher_id) — season param accepted for call-site
+    compatibility but the vsPlayer endpoint returns career totals regardless.
     """
-    key = (batter_id, pitcher_id, season)
+    key = (batter_id, pitcher_id)  # season omitted: API returns career totals
     if key in _h2h_cache:
         return _h2h_cache[key]
     try:

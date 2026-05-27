@@ -46,26 +46,23 @@ def _commence_date_pt(commence_time: str) -> str:
         return ""
 
 
-def _build_game_totals(conn, pulled_at: str, today: str) -> dict[tuple, float]:
+def _build_game_totals(all_rows: list[dict], today: str) -> dict[tuple, float]:
     """
     Build {(home_team_lower, away_team_lower): point} from Bovada totals lines.
-    Used to pass game O/U context into pitcher scoring.
+    Accepts the already-fetched snapshot rows to avoid a second DB read.
     """
-    all_rows = [dict(r) for r in get_snapshots(conn, pulled_at)]
-    totals_rows = [
-        r for r in all_rows
-        if r["market_key"] == "totals"
-        and r["player_name"] == ""
-        and r["bookmaker_key"] in BOVADA_KEYS
-        and _commence_date_pt(r["commence_time"]) == today
-        and r["selection"] == "Over"   # Over and Under share same point
-        and (r.get("point") or 0) >= 7.0
-    ]
     result: dict[tuple, float] = {}
-    for r in totals_rows:
-        key = (r["home_team"].lower(), r["away_team"].lower())
-        if key not in result:
-            result[key] = float(r["point"])
+    for r in all_rows:
+        if (r["market_key"] == "totals"
+                and r["player_name"] == ""
+                and r["bookmaker_key"] in BOVADA_KEYS
+                and _commence_date_pt(r["commence_time"]) == today
+                and r["selection"] == "Over"
+                and r.get("point") is not None
+                and float(r["point"]) >= 7.0):
+            key = (r["home_team"].lower(), r["away_team"].lower())
+            if key not in result:
+                result[key] = float(r["point"])
     return result
 
 
@@ -76,8 +73,8 @@ def _analyze(conn, pulled_at: str, today: str,
     game_data: pre-fetched from lineups.get_game_data_for_date().
     Returns (picks_evaluated, no_bets_logged).
     """
-    game_totals = _build_game_totals(conn, pulled_at, today)
     rows = [dict(r) for r in get_snapshots(conn, pulled_at)]
+    game_totals = _build_game_totals(rows, today)
     rows = [r for r in rows if r["player_name"] != ""]
     rows = [r for r in rows if _commence_date_pt(r["commence_time"]) == today]
 

@@ -11,6 +11,7 @@ import logging
 from config import SIGNAL_WEIGHTS, SCORE_RECOMMENDED, SCORE_LEAN
 from signals.parks import get_park
 from signals.weather import get_weather
+from signals.statcast import fetch_pitcher_velo_trend
 
 _log = logging.getLogger(__name__)
 
@@ -259,7 +260,6 @@ def _score_pitcher_strikeouts(
         # Velocity trend: recent 3-start avg vs season avg fastball velo.
         # Gaining velo → good for K Over; losing velo → good for K Under.
         # trend=+1 mph above avg → raw=0.6; trend=-1 → raw=0.4
-        from signals.statcast import fetch_pitcher_velo_trend
         vt = fetch_pitcher_velo_trend(player_id, season)
         trend = vt.get("trend")
         add("velo_trend", _velo_trend_signal(trend, selection),
@@ -437,7 +437,6 @@ def _score_pitcher_outs(
         add("rest_days", _pitcher_rest_signal(rest, selection), f"rest_days={rest}")
 
         # Velocity trend: gaining velo → good for Over outs (healthy/strong arm).
-        from signals.statcast import fetch_pitcher_velo_trend
         vt = fetch_pitcher_velo_trend(player_id, season)
         trend = vt.get("trend")
         add("velo_trend", _velo_trend_signal(trend, selection),
@@ -560,8 +559,10 @@ def _score_batter(
             from stats import fetch_batter_vs_pitcher
             h2h = fetch_batter_vs_pitcher(player_id, pitcher_id, season)
             if h2h:
-                add("h2h", _season_rate_signal(h2h["avg"], 0.255, selection, 0.060),
-                    f"h2h={h2h['hits']}/{h2h['ab']} ({h2h['avg']:.3f})")
+                avg = h2h["avg"]
+                add("h2h", _season_rate_signal(avg, 0.255, selection, 0.060),
+                    f"h2h={h2h['hits']}/{h2h['ab']} ({avg:.3f})" if avg is not None else
+                    f"h2h={h2h['hits']}/{h2h['ab']} (avg=None)")
             else:
                 add("h2h", 0.5, "h2h=<5 AB or unavailable")
         else:

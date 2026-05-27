@@ -133,7 +133,7 @@ def fetch_pitcher_velo_trend(player_id: int, season: int) -> dict:
         if not chart:
             _velo_cache[key] = {}
             return {}
-        velos = [float(pt["y"]) for pt in chart if pt.get("y") is not None]
+        velos = [v for pt in chart for v in (_f(pt.get("y")),) if v is not None]
         if len(velos) < 3:
             _velo_cache[key] = {}
             return {}
