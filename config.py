@@ -124,10 +124,10 @@ SIGNAL_WEIGHTS: dict[str, dict[str, int]] = {
         "platoon_alignment":  9,   # near-zero coef (-0.026) at n=195 — not enough to cut hard
         "stuff_plus":         7,   # FanGraphs: Stuff+ — neutral (coef 0.000)
         "recent_k_rate":      7,   # near-zero coef (-0.008) at n=195 — modest trim only
-        "opp_team_k_pct":     1,   # slightly negative (coef -0.002); trimmed to fund velo_trend
-        "edge":               0,   # harmful coef (-0.367); zeroed to fund velo_trend
+        "opp_team_k_pct":     1,   # slightly negative (coef -0.002); trimmed to fund velo_quality
+        "edge":               0,   # harmful coef (-0.367); zeroed to fund velo_quality
         "weather":            0,   # harmful (coef -0.261); removed entirely
-        "velo_trend":         5,   # recent 3-start avg vs season avg fastball velocity
+        "velo_quality":       5,   # season avg fastball speed vs 93 mph baseline
     },
     "pitcher_hits_allowed": {
         "recent_h9":         17,
@@ -151,7 +151,7 @@ SIGNAL_WEIGHTS: dict[str, dict[str, int]] = {
         "rest_days":          8,   # days since last start; fresh pitcher → more outs
         "weather":            0,   # trimmed; minimal value after park/total context
         "edge":               0,   # trimmed; minimal value in outs market
-        "velo_trend":         5,   # recent 3-start avg vs season avg fastball velocity
+        "velo_quality":       5,   # season avg fastball speed vs 93 mph baseline
         "game_total":         5,   # implied game O/U; high total = run-heavy = fewer outs
     },
     "batter_total_bases": {

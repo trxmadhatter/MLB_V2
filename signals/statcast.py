@@ -34,10 +34,13 @@ def _i(v) -> int:
 
 def _best_fastball_velo(ff_velo: float | None, n_ff: int,
                         si_velo: float | None, n_si: int) -> float | None:
-    """Return the avg speed of whichever fastball type was thrown more."""
+    """Return the avg speed of whichever fastball type was thrown more.
+    Falls back to the other type if the dominant type's speed is missing."""
+    if n_ff == 0 and n_si == 0:
+        return None
     if n_ff >= n_si:
-        return ff_velo if n_ff > 0 else None
-    return si_velo if n_si > 0 else None
+        return ff_velo if ff_velo is not None else si_velo
+    return si_velo if si_velo is not None else ff_velo
 
 
 def _load_pitchers(season: int) -> dict[int, dict]:
@@ -73,10 +76,11 @@ def _load_pitchers(season: int) -> dict[int, dict]:
                 }
             except (ValueError, TypeError):
                 pass
-        _pitcher_cache[season] = result   # only cached on successful fetch
+        _pitcher_cache[season] = result
     except Exception as exc:
         _log.warning("Failed to load pitcher Statcast data for season %s: %s", season, exc)
-    return _pitcher_cache.get(season, {})
+        _pitcher_cache[season] = {}   # cache empty result to suppress per-pick retries
+    return _pitcher_cache[season]
 
 
 def _load_batters(season: int) -> dict[int, dict]:

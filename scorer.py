@@ -11,7 +11,6 @@ import logging
 from config import SIGNAL_WEIGHTS, SCORE_RECOMMENDED, SCORE_LEAN
 from signals.parks import get_park
 from signals.weather import get_weather
-from signals.statcast import fetch_pitcher_velo_trend
 
 _log = logging.getLogger(__name__)
 
@@ -255,14 +254,13 @@ def _score_pitcher_strikeouts(
             f"stuff_plus={stuff}")
 
         # Fastball velocity quality: hard throwers → good for K Over.
-        # 93 mph = midpoint; uses season leaderboard avg (no separate HTTP call).
-        vt = fetch_pitcher_velo_trend(player_id, season)
-        velo = vt.get("fastball_velo")
-        add("velo_trend", _velo_trend_signal(velo, selection),
+        # 93 mph = midpoint; sc already loaded above — no extra HTTP call.
+        velo = sc.get("fastball_velo")
+        add("velo_quality", _velo_trend_signal(velo, selection),
             f"fastball_velo={velo:.1f}mph" if velo is not None else "fastball_velo=unavailable")
     else:
         for sig in ("recent_k_rate", "season_k_pct", "opp_team_k_pct",
-                    "platoon_alignment", "whiff_pct", "stuff_plus", "velo_trend"):
+                    "platoon_alignment", "whiff_pct", "stuff_plus", "velo_quality"):
             add(sig, 0.5, "player_id unavailable")
 
     return breakdown
@@ -433,13 +431,13 @@ def _score_pitcher_outs(
         add("rest_days", _pitcher_rest_signal(rest, selection), f"rest_days={rest}")
 
         # Fastball velocity quality: hard throwers → good for outs Over (deeper starts).
-        vt = fetch_pitcher_velo_trend(player_id, season)
-        velo = vt.get("fastball_velo")
-        add("velo_trend", _velo_trend_signal(velo, selection),
+        # get_pitcher_statcast hits the season-level cache; no extra HTTP call.
+        velo = get_pitcher_statcast(player_id, season).get("fastball_velo")
+        add("velo_quality", _velo_trend_signal(velo, selection),
             f"fastball_velo={velo:.1f}mph" if velo is not None else "fastball_velo=unavailable")
     else:
         for sig in ("recent_ip", "season_ip", "opp_lineup_ops", "xfip", "swstr_pct",
-                    "rest_days", "velo_trend"):
+                    "rest_days", "velo_quality"):
             add(sig, 0.5, "player_id unavailable")
 
     # Game total: high total = run-heavy environment → fewer outs for pitcher.
