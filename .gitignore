@@ -9,5 +9,6 @@ __pycache__/
 .pytest_cache/
 *.log
 logs/
+data/refresh_log.txt
 .streamlit/secrets.toml
 nul
