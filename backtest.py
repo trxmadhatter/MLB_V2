@@ -67,6 +67,30 @@ def init_backtest_db(conn: sqlite3.Connection) -> None:
             UNIQUE(pick_date, player_name, market_key, selection, point)
         );
 
+        CREATE TABLE IF NOT EXISTS backtest_game_picks (
+            id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+            pick_date             TEXT    NOT NULL,
+            event_id              TEXT    NOT NULL,
+            home_team             TEXT    NOT NULL,
+            away_team             TEXT    NOT NULL,
+            market_key            TEXT    NOT NULL,
+            selection             TEXT    NOT NULL,
+            point                 REAL    NOT NULL,
+            bovada_price          INTEGER NOT NULL,
+            bovada_fair_prob      REAL    NOT NULL,
+            consensus_fair_prob   REAL    NOT NULL,
+            consensus_book_count  INTEGER NOT NULL,
+            edge                  REAL    NOT NULL,
+            recommendation        TEXT    NOT NULL,
+            result                TEXT    NOT NULL DEFAULT 'PENDING',
+            home_runs             INTEGER,
+            away_runs             INTEGER,
+            profit_units          REAL,
+            signal_score          INTEGER,
+            signal_breakdown      TEXT,
+            UNIQUE(pick_date, event_id, market_key, selection)
+        );
+
         CREATE TABLE IF NOT EXISTS backtest_days (
             pick_date      TEXT PRIMARY KEY,
             processed_at   TEXT NOT NULL,
@@ -103,6 +127,27 @@ def _store_picks(
     bt_conn.commit()
 
 
+def _store_game_picks(
+    bt_conn: sqlite3.Connection,
+    picks: list,
+) -> None:
+    bt_conn.executemany("""
+        INSERT OR IGNORE INTO backtest_game_picks
+            (pick_date, event_id, home_team, away_team, market_key, selection, point,
+             bovada_price, bovada_fair_prob, consensus_fair_prob,
+             consensus_book_count, edge, recommendation,
+             result, home_runs, away_runs, profit_units,
+             signal_score, signal_breakdown)
+        VALUES
+            (:pick_date, :event_id, :home_team, :away_team, :market_key, :selection, :point,
+             :bovada_price, :bovada_fair_prob, :consensus_fair_prob,
+             :consensus_book_count, :edge, :recommendation,
+             :result, :home_runs, :away_runs, :profit_units,
+             :signal_score, :signal_breakdown)
+    """, picks)
+    bt_conn.commit()
+
+
 # ── Per-day analysis ──────────────────────────────────────────────────────────
 
 def _analyze_day(snapshot_rows: list, pulled_at: str, date_str: str) -> list:
@@ -118,6 +163,63 @@ def _analyze_day(snapshot_rows: list, pulled_at: str, date_str: str) -> list:
         "SELECT * FROM daily_picks WHERE pick_date=?", (date_str,)
     ).fetchall()]
     mem.close()
+    return picks
+
+
+def _analyze_game_day(snapshot_rows: list, pulled_at: str, date_str: str) -> list:
+    """Run game analysis on snapshot_rows using in-memory SQLite. Returns game pick dicts."""
+    from run_daily import _analyze_games
+
+    mem = sqlite3.connect(":memory:")
+    mem.row_factory = sqlite3.Row
+    init_db(mem)
+    insert_snapshots(mem, snapshot_rows)
+    _analyze_games(mem, pulled_at, date_str, game_data=None)
+    picks = [dict(r) for r in mem.execute(
+        "SELECT * FROM daily_game_picks WHERE pick_date=?", (date_str,)
+    ).fetchall()]
+    mem.close()
+    # seed fields expected by _store_game_picks
+    for p in picks:
+        p.setdefault("result",       "PENDING")
+        p.setdefault("home_runs",    None)
+        p.setdefault("away_runs",    None)
+        p.setdefault("profit_units", None)
+    return picks
+
+
+def _grade_game_picks(picks: list, date_str: str) -> list:
+    """Grade game picks against actual scores for date_str."""
+    from grade import get_game_scores, grade_outcome, calc_profit
+
+    scores = get_game_scores(date_str)
+    for p in picks:
+        matched = None
+        for s in scores:
+            home_match = (p["home_team"].lower() in s["home_team"].lower() or
+                          s["home_team"].lower() in p["home_team"].lower())
+            away_match = (p["away_team"].lower() in s["away_team"].lower() or
+                          s["away_team"].lower() in p["away_team"].lower())
+            if home_match and away_match:
+                matched = s
+                break
+        if not matched:
+            continue
+        if p["market_key"] == "totals":
+            actual_total = matched["home_runs"] + matched["away_runs"]
+            result = grade_outcome(p["selection"], p["point"], actual_total)
+        else:
+            is_home   = p["selection"] == "Home"
+            score_for = matched["home_runs"] if is_home else matched["away_runs"]
+            score_agn = matched["away_runs"] if is_home else matched["home_runs"]
+            adjusted  = score_for - score_agn + p["point"]
+            if adjusted > 0:   result = "WIN"
+            elif adjusted < 0: result = "LOSS"
+            else:              result = "PUSH"
+        p["result"]       = result
+        p["home_runs"]    = matched["home_runs"]
+        p["away_runs"]    = matched["away_runs"]
+        p["profit_units"] = calc_profit(result, p["bovada_price"])
     return picks
 
 
@@ -167,13 +269,17 @@ def run_backtest_day(
 
     print(f"  {date_str}: {len(snapshot_rows)} snapshot rows - analyzing...")
     picks = _analyze_day(snapshot_rows, pulled_at, date_str)
-    print(f"  {date_str}: {len(picks)} picks evaluated - grading...")
+    game_picks = _analyze_game_day(snapshot_rows, pulled_at, date_str)
+    print(f"  {date_str}: {len(picks)} prop picks, {len(game_picks)} game picks — grading...")
 
     picks = _grade_picks(picks, date_str)
+    game_picks = _grade_game_picks(game_picks, date_str)
     graded_count = sum(1 for p in picks if p.get("result", "PENDING") != "PENDING")
-    print(f"  {date_str}: {graded_count}/{len(picks)} picks graded")
+    game_graded  = sum(1 for p in game_picks if p.get("result", "PENDING") != "PENDING")
+    print(f"  {date_str}: {graded_count}/{len(picks)} props graded, {game_graded}/{len(game_picks)} game picks graded")
 
     _store_picks(bt_conn, date_str, picks)
+    _store_game_picks(bt_conn, game_picks)
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     bt_conn.execute(
@@ -317,6 +423,30 @@ def print_report(
         wp  = f"{r['win_pct']:.1f}%" if r['win_pct'] is not None else "  --"
         roi = f"{r['roi_pct']:+.1f}%" if r['roi_pct'] is not None else "  --"
         print(f"  {r['bucket']:<16} {r['total']:>4}  {wlp:>11}  {wp:>6}  {r['net_units']:>+7.2f}  {roi:>6}")
+
+    game_rows = bt_conn.execute("""
+        SELECT market_key, selection,
+               COUNT(*) AS total,
+               SUM(CASE WHEN result='WIN'  THEN 1 ELSE 0 END) AS wins,
+               SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END) AS losses,
+               SUM(CASE WHEN result='PUSH' THEN 1 ELSE 0 END) AS pushes,
+               ROUND(100.0 * SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END)
+                     / NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS') THEN 1 ELSE 0 END), 0), 1) AS win_pct,
+               ROUND(SUM(COALESCE(profit_units, 0)), 2) AS net_units
+        FROM backtest_game_picks
+        WHERE result != 'PENDING'
+          AND recommendation IN ('RECOMMENDED', 'LEAN')
+        GROUP BY market_key, selection
+        ORDER BY net_units DESC
+    """).fetchall()
+    if game_rows:
+        print("\n-- GAME PICKS (LEAN+) --------------------------------------")
+        print(f"  {'MARKET':<10} {'SEL':<6} {'TOT':>4}  {'W-L-P':>9}  {'WIN%':>6}  {'NET':>7}")
+        print("  " + "-" * 50)
+        for r in game_rows:
+            wlp = f"{r['wins']}-{r['losses']}-{r['pushes']}"
+            wp  = f"{r['win_pct']:.1f}%" if r['win_pct'] is not None else "  --"
+            print(f"  {r['market_key']:<10} {r['selection']:<6} {r['total']:>4}  {wlp:>9}  {wp:>6}  {r['net_units']:>+7.2f}")
 
     cal = _report_calibration(bt_conn)
     if cal:

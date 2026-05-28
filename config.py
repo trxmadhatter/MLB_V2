@@ -53,6 +53,8 @@ ALL_PROP_MARKETS = [
     "batter_stolen_bases",
     "batter_walks",
     "totals",
+    "h2h",
+    "spreads",
 ]
 
 # Bovada is the target book — isolated from consensus
