@@ -79,8 +79,7 @@ def _load_pitchers(season: int) -> dict[int, dict]:
         _pitcher_cache[season] = result
     except Exception as exc:
         _log.warning("Failed to load pitcher Statcast data for season %s: %s", season, exc)
-        _pitcher_cache[season] = {}   # cache empty result to suppress per-pick retries
-    return _pitcher_cache[season]
+    return _pitcher_cache.get(season, {})
 
 
 def _load_batters(season: int) -> dict[int, dict]:

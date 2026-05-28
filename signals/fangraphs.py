@@ -5,17 +5,19 @@ Cache is per-process and season-keyed; call reset_cache() in tests only.
 """
 from __future__ import annotations
 import logging
+import time
 import requests
 
 _BASE    = "https://www.fangraphs.com/api/leaders/major-league/data"
 _REFERER = "https://www.fangraphs.com/leaders/major-league"
 _TIMEOUT = 20
+_FAIL_RETRY_SECONDS = 300
 _log     = logging.getLogger(__name__)
 
 # season -> {player_id -> metrics}
 _pitcher_cache: dict[int, dict[int, dict]] = {}
-# seasons where the fetch failed — skip retry within the same process
-_pitcher_failed: set[int] = set()
+# season -> monotonic timestamp before which retry attempts are suppressed
+_pitcher_failed_until: dict[int, float] = {}
 
 
 def _f(v) -> float | None:
@@ -28,7 +30,8 @@ def _f(v) -> float | None:
 def _load_pitchers(season: int) -> dict[int, dict]:
     if season in _pitcher_cache:
         return _pitcher_cache[season]
-    if season in _pitcher_failed:
+    failed_until = _pitcher_failed_until.get(season)
+    if failed_until is not None and time.monotonic() < failed_until:
         return {}
     result: dict[int, dict] = {}
     try:
@@ -86,7 +89,7 @@ def _load_pitchers(season: int) -> dict[int, dict]:
         _pitcher_cache[season] = result   # only cached on successful fetch
     except Exception as exc:
         _log.warning("Failed to load pitcher FanGraphs data for season %s: %s", season, exc)
-        _pitcher_failed.add(season)
+        _pitcher_failed_until[season] = time.monotonic() + _FAIL_RETRY_SECONDS
     return _pitcher_cache.get(season, {})
 
 
@@ -97,4 +100,4 @@ def get_pitcher_fangraphs(player_id: int, season: int) -> dict:
 
 def reset_cache() -> None:
     _pitcher_cache.clear()
-    _pitcher_failed.clear()
+    _pitcher_failed_until.clear()
