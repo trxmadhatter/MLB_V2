@@ -149,9 +149,10 @@ hr { border-color: #252a38 !important; }
     padding: 16px;
     margin: 0 0 8px 0;
 }
-.pick.elite { border-top: 2px solid #6366f1; }
-.pick.good  { border-top: 2px solid #f59e0b; }
-.pick.pass  { border-top: 2px solid #475569; }
+.pick.elite  { border-top: 2px solid #6366f1; }
+.pick.good   { border-top: 2px solid #f59e0b; }
+.pick.watch  { border-top: 2px solid #0ea5e9; }
+.pick.pass   { border-top: 2px solid #475569; }
 .pick.game  { background: #191c26; border-left: 3px solid #2a3044; }
 
 /* Badges */
@@ -162,6 +163,7 @@ hr { border-color: #252a38 !important; }
 }
 .badge.elite { background: #1e1f3a; color: #818cf8; border: 1px solid #3730a3; }
 .badge.good  { background: #1f1a0a; color: #fbbf24; border: 1px solid #78350f; }
+.badge.watch { background: #0c1a24; color: #38bdf8; border: 1px solid #0369a1; }
 .badge.pass  { background: #161a24; color: #64748b; border: 1px solid #334155; }
 
 /* Result pills */
@@ -219,9 +221,9 @@ def _mkt(key: str) -> str:
 def _rec_label(rec: str) -> str:
     rec = normalize_recommendation(rec)
     return {
-        "A_BET": "A Bet",
-        "B_BET": "B Bet",
-        "WATCH": "Watch",
+        "A_BET": "Elite",
+        "B_BET": "Good",
+        "WATCH": "Watchlist",
         "PASS": "Pass",
     }.get(rec, rec)
 
@@ -234,6 +236,8 @@ def _tier(rec: str) -> str:
     rec = normalize_recommendation(rec)
     if rec == "A_BET":
         return "elite"
+    if rec == "WATCH":
+        return "watch"
     if rec == "PASS":
         return "pass"
     return "good"
@@ -810,7 +814,7 @@ def _track_strip(conn, p: dict, id_field: str = "id") -> None:
         st.rerun()
 
     st.markdown(
-        '<div style="font-size:10px;color:#3a4058;margin-top:2px">A Bets: max 1.5u default 1u; B Bets: max 1u default 0.5u</div>',
+        '<div style="font-size:10px;color:#3a4058;margin-top:2px">Elite: max 1.5u default 1u; Good: max 1u default 0.5u</div>',
         unsafe_allow_html=True,
     )
 
@@ -862,7 +866,7 @@ def _game_track_strip(conn, p: dict) -> None:
         conn.close()
         st.rerun()
     st.markdown(
-        '<div style="font-size:10px;color:#3a4058;margin-top:2px">A Bets: max 1.5u default 1u; B Bets: max 1u default 0.5u</div>',
+        '<div style="font-size:10px;color:#3a4058;margin-top:2px">Elite: max 1.5u default 1u; Good: max 1u default 0.5u</div>',
         unsafe_allow_html=True,
     )
 
@@ -1028,7 +1032,7 @@ def _render_today(conn, today: str) -> None:
     watch_picks = [p for p in visible if normalize_recommendation(p["recommendation"]) == "WATCH"]
 
     if elite_picks:
-        st.markdown('<div class="section-label">A Bets</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-label">Elite</div>', unsafe_allow_html=True)
         for p in elite_picks:
             st.markdown(_prop_card_html(p), unsafe_allow_html=True)
             tier_lbl = _rec_label(p["recommendation"])
@@ -1042,7 +1046,7 @@ def _render_today(conn, today: str) -> None:
             _track_strip(conn, p)
 
     if good_picks:
-        st.markdown('<div class="section-label">B Bets</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-label">Good</div>', unsafe_allow_html=True)
         for p in good_picks:
             st.markdown(_prop_card_html(p), unsafe_allow_html=True)
             tier_lbl = _rec_label(p["recommendation"])
@@ -1095,13 +1099,13 @@ def _render_history(conn) -> None:
     from datetime import datetime as _dt
 
     tier_filter = st.selectbox(
-        "Tier", ["A + B Bets", "A Bets only", "B Bets only", "Watchlist"],
+        "Tier", ["Elite + Good", "Elite only", "Good only", "Watchlist"],
         key="hist_tier",
     )
     tiers = (
-        ("A_BET", "B_BET", "RECOMMENDED", "LEAN") if tier_filter == "A + B Bets"
-        else ("A_BET", "RECOMMENDED") if tier_filter == "A Bets only"
-        else ("B_BET", "LEAN") if tier_filter == "B Bets only"
+        ("A_BET", "B_BET", "RECOMMENDED", "LEAN") if tier_filter == "Elite + Good"
+        else ("A_BET", "RECOMMENDED") if tier_filter == "Elite only"
+        else ("B_BET", "LEAN") if tier_filter == "Good only"
         else ("WATCH",)
     )
     placeholders = ",".join("?" * len(tiers))
