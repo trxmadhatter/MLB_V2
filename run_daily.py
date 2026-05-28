@@ -504,14 +504,14 @@ def _detect_promotions(conn, today: str, prev_watch: dict) -> list[dict]:
 
 
 def _snapshot_game_bets(conn, today: str) -> dict:
-    """Return {(event_id, market_key, selection): (recommendation, edge)} for bet game picks."""
+    """Return {(event_id, market_key, selection, point): (recommendation, edge)} for bet game picks."""
     rows = conn.execute("""
-        SELECT event_id, market_key, selection, recommendation, edge
+        SELECT event_id, market_key, selection, point, recommendation, edge
         FROM daily_game_picks
         WHERE pick_date = ? AND bet_placed = 1
           AND recommendation IN ('A_BET','B_BET','RECOMMENDED','LEAN')
     """, [today]).fetchall()
-    return {(r["event_id"], r["market_key"], r["selection"]): (r["recommendation"], r["edge"])
+    return {(r["event_id"], r["market_key"], r["selection"], r["point"]): (r["recommendation"], r["edge"])
             for r in rows}
 
 
@@ -520,11 +520,11 @@ def _detect_game_degradations(conn, today: str, prev_bets: dict) -> list[dict]:
     from config import EDGE_RECOMMENDED, EDGE_LEAN
     from edge import normalize_recommendation
     degraded = []
-    for (event_id, market_key, selection), (rec, _) in prev_bets.items():
+    for (event_id, market_key, selection, point), (rec, _) in prev_bets.items():
         row = conn.execute("""
             SELECT * FROM daily_game_picks
-            WHERE pick_date=? AND event_id=? AND market_key=? AND selection=?
-        """, [today, event_id, market_key, selection]).fetchone()
+            WHERE pick_date=? AND event_id=? AND market_key=? AND selection=? AND point=?
+        """, [today, event_id, market_key, selection, point]).fetchone()
         if not row:
             continue
         new_edge = row["edge"] or 0.0

@@ -113,7 +113,7 @@ def send_degradation_alert(degraded: list[dict], today: str) -> None:
     n = len(degraded)
     subject = f"MLB Line Alert — {n} bet{'s' if n > 1 else ''} degraded ({today_label})"
 
-    plain_lines = [f"LINE DEGRADATION — {today_label}", "Consider cashing out on Bovada", ""]
+    plain_lines = [f"LINE DEGRADATION — {today_label}", "Edge has moved — review position on Bovada", ""]
     for p in degraded:
         plain_lines.append(
             f"{p.get('away_team','?')} @ {p.get('home_team','?')} | "
@@ -137,7 +137,7 @@ def send_degradation_alert(degraded: list[dict], today: str) -> None:
 
     html_body = f"""<html><body style="font-family:monospace;background:#0d1117;color:#e6edf3;padding:20px">
 <h2 style="color:#e74c3c">Line Degradation Alert &mdash; {today_label}</h2>
-<p style="color:#8b949e">{n} bet{'s' if n > 1 else ''} no longer meeting edge threshold &mdash; consider cashing out on Bovada</p>
+<p style="color:#8b949e">{n} bet{'s' if n > 1 else ''} no longer meeting edge threshold &mdash; review position on Bovada</p>
 {cards}
 </body></html>"""
 
