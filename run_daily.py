@@ -636,6 +636,26 @@ def main() -> None:
     _print_game_summary(conn, today)
     print()
 
+    # Write status file for remote health checks
+    try:
+        bets_count = conn.execute("""
+            SELECT COUNT(*) AS cnt FROM daily_picks
+            WHERE pick_date = ?
+              AND recommendation IN ('A_BET','B_BET','RECOMMENDED','LEAN')
+              AND sim_prob IS NOT NULL AND sim_prob >= bovada_break_even_prob
+        """, (today,)).fetchone()["cnt"]
+        status = {
+            "date": today,
+            "ran_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "picks_evaluated": evaluated,
+            "bets_found": bets_count,
+            "email_sent": False,
+            "pipeline_success": True,
+        }
+        (ROOT / "data" / "status.json").write_text(json.dumps(status, indent=2))
+    except Exception as _e:
+        print(f"  WARNING: could not write status.json ({_e})")
+
     conn.close()
 
 

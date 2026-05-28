@@ -575,6 +575,16 @@ def send(today_picks, yesterday_picks, record, today, yesterday,
 
     print(f"  Email sent to {email_to}")
 
+    try:
+        status_path = ROOT / "data" / "status.json"
+        if status_path.exists():
+            import json as _json
+            status = _json.loads(status_path.read_text())
+            status["email_sent"] = True
+            status_path.write_text(_json.dumps(status, indent=2))
+    except Exception:
+        pass
+
 
 def _stamp_emailed(conn, today: str, today_picks: list[dict],
                    today_game_picks: list[dict]) -> None:
