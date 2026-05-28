@@ -64,23 +64,23 @@ EDGE_RECOMMENDED = 0.04   # >= 4%
 EDGE_LEAN = 0.02          # >= 2%, < 4%
 EDGE_MIN_BET = 0.01       # >= 1% required for whitelist markets
 
-# Winning market/direction combinations — calibration filter handles bad edge buckets
+# Winning market/direction combinations; calibration filter handles bad edge buckets.
 # Removed 2026-05-24: pitcher_strikeouts Over (LEAN 25% WR/12 picks), pitcher_hits_allowed Under (LEAN 18.2%/11 picks)
 # Removed 2026-05-26: pitcher_hits_allowed entirely (0W-4L live, dropped from V1_MARKETS; replaced by pitcher_outs)
-# pitcher_strikeouts Under retained — existing 6% MARKET_EDGE_MIN blocks unprofitable bucket; 6%+ is 54-37
+# pitcher_strikeouts Under retained with 8% minimum; lower bands diluted performance in verification.
 BET_WHITELIST: set[tuple[str, str]] = {
     ("pitcher_outs",         "Over"),
     ("batter_total_bases",   "Under"),
     ("pitcher_strikeouts",   "Under"),
-    ("batter_hits",          "Over"),    # <2% profitable; 4-6% and 6%+ blocked by calibration
-    ("batter_hits",          "Under"),   # <2% profitable
+    ("batter_hits",          "Over"),    # calibration blocks currently unprofitable buckets
+    ("batter_hits",          "Under"),   # calibration blocks currently unprofitable buckets
     ("totals",               "Over"),
     ("totals",               "Under"),
 }
 
 # Per-market minimum edge overrides (applied on top of global EDGE_MIN_BET)
 MARKET_EDGE_MIN: dict[tuple[str, str], float] = {
-    ("pitcher_strikeouts", "Under"): 0.06,   # 6%+ bucket is 54-37; lowered from 0.08
+    ("pitcher_strikeouts", "Under"): 0.08,
 }
 
 # Markets where +100 or better (underdog) price is unprofitable — exclude those lines
