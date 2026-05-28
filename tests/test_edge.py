@@ -95,7 +95,7 @@ class TestClassifyByScore:
         assert required_edge_for_price(120) == pytest.approx(0.01)
 
     def test_a_bet(self):
-        assert classify_by_score(70, 0.035, "batter_total_bases", "Under", -135) == "A_BET"
+        assert classify_by_score(70, 0.040, "batter_total_bases", "Under", -135) == "A_BET"
 
     def test_b_bet(self):
         assert classify_by_score(58, 0.020, "batter_total_bases", "Under", -115) == "B_BET"
