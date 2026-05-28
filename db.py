@@ -249,7 +249,12 @@ def init_db(conn: PgConn) -> None:
         ("daily_game_picks", "signal_breakdown",     "TEXT"),
     ]
     for table, col, col_def in _col_migrations:
-        conn.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_def}")
+        try:
+            conn.execute("SAVEPOINT sp_col_migrate")
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_def}")
+            conn.execute("RELEASE SAVEPOINT sp_col_migrate")
+        except Exception:
+            conn.execute("ROLLBACK TO SAVEPOINT sp_col_migrate")
     conn.commit()
 
 
