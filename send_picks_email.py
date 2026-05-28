@@ -30,9 +30,66 @@ def _rec_color(rec: str) -> str:
 
 
 def _rec_label(rec: str) -> str:
-    return {"A_BET": "A BET", "B_BET": "B BET", "WATCH": "WATCH"}.get(
+    return {"A_BET": "ELITE", "B_BET": "GOOD", "WATCH": "WATCHLIST"}.get(
         normalize_recommendation(rec), rec
     )
+
+
+def send_promotion_alert(promoted: list[dict], today: str) -> None:
+    """Compact alert email when Watchlist picks upgrade to Elite or Good."""
+    import html as _html
+    email_from = os.getenv("EMAIL_FROM", "")
+    email_pass = os.getenv("EMAIL_PASSWORD", "")
+    email_to   = os.getenv("EMAIL_TO", email_from)
+    if not email_from or not email_pass:
+        print("  EMAIL_FROM / EMAIL_PASSWORD not set — skipping promotion alert")
+        return
+
+    today_label = date.fromisoformat(today).strftime("%B %d")
+    n = len(promoted)
+    subject = f"MLB Promotion Alert — {n} pick{'s' if n > 1 else ''} upgraded ({today_label})"
+
+    plain_lines = [f"WATCHLIST UPGRADED — {today_label}", ""]
+    for p in promoted:
+        tier = "ELITE" if normalize_recommendation(p["recommendation"]) == "A_BET" else "GOOD"
+        plain_lines.append(
+            f"[{tier}] {p['player_name']} | {p['market_key']} | "
+            f"{p['selection']} {p['point']} | {_fmt_odds(p['bovada_price'])} | "
+            f"{p['edge']*100:+.1f}% edge"
+        )
+
+    cards = ""
+    for p in promoted:
+        rec  = normalize_recommendation(p["recommendation"])
+        tier = "ELITE" if rec == "A_BET" else "GOOD"
+        col  = "#818cf8" if rec == "A_BET" else "#fbbf24"
+        bdr  = "#6366f1" if rec == "A_BET" else "#f59e0b"
+        cards += (
+            f'<div style="border-left:3px solid {bdr};padding:8px 14px;margin:8px 0;background:#161b22">'
+            f'<span style="color:{col};font-weight:700">{tier}</span>&nbsp;&nbsp;'
+            f'{_html.escape(str(p["player_name"]))} &mdash; '
+            f'{_html.escape(str(p["market_key"]))} {_html.escape(str(p["selection"]))} {p["point"]}'
+            f'&nbsp;&nbsp;<span style="color:#8b949e">{_fmt_odds(p["bovada_price"])} &nbsp; '
+            f'{p["edge"]*100:+.1f}% edge</span></div>'
+        )
+
+    html_body = f"""<html><body style="font-family:monospace;background:#0d1117;color:#e6edf3;padding:20px">
+<h2 style="color:#38bdf8">Watchlist Promotion &mdash; {today_label}</h2>
+<p style="color:#8b949e">{n} pick{'s' if n > 1 else ''} upgraded from Watchlist to actionable</p>
+{cards}
+</body></html>"""
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"]    = email_from
+    msg["To"]      = email_to
+    msg.attach(MIMEText("\n".join(plain_lines), "plain"))
+    msg.attach(MIMEText(html_body, "html"))
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(email_from, email_pass)
+        server.sendmail(email_from, email_to, msg.as_string())
+    print(f"  Promotion alert sent to {email_to} ({n} picks)")
 
 
 def _result_color(result: str) -> tuple[str, str]:

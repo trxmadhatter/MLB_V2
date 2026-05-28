@@ -310,8 +310,11 @@ def upsert_pick(conn: PgConn, pick: dict) -> None:
             sim_prob=EXCLUDED.sim_prob,
             team_abbr=EXCLUDED.team_abbr,
             recommendation=CASE
-                WHEN daily_picks.emailed=1 OR daily_picks.bet_placed=1
-                THEN daily_picks.recommendation
+                WHEN daily_picks.bet_placed=1
+                    THEN daily_picks.recommendation
+                WHEN daily_picks.emailed=1
+                     AND daily_picks.recommendation IN ('A_BET','B_BET','RECOMMENDED','LEAN')
+                    THEN daily_picks.recommendation
                 ELSE EXCLUDED.recommendation
             END
     """, pick)

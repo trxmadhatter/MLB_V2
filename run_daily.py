@@ -2,10 +2,13 @@
 """
 MLB V2 — daily pipeline.
 Run once per day before first pitch (recommended: 9 AM PT).
+Run with --refresh to re-pull odds mid-day and detect Watchlist promotions.
 
 Usage:
-    python run_daily.py
+    python run_daily.py           # morning run
+    python run_daily.py --refresh # mid-day refresh (skips grading)
 """
+import argparse
 import csv
 import json
 import os
@@ -475,7 +478,37 @@ def _print_game_summary(conn, pick_date: str) -> None:
         )
 
 
+def _snapshot_watch_picks(conn, today: str) -> dict:
+    """Return {pick_key: recommendation} for all WATCH picks today."""
+    rows = conn.execute("""
+        SELECT event_id, player_name, market_key, selection, point
+        FROM daily_picks
+        WHERE pick_date = ? AND recommendation = 'WATCH'
+    """, [today]).fetchall()
+    return {(r["event_id"], r["player_name"], r["market_key"], r["selection"], r["point"]): "WATCH"
+            for r in rows}
+
+
+def _detect_promotions(conn, today: str, prev_watch: dict) -> list[dict]:
+    """Return picks that were WATCH and are now A_BET or B_BET."""
+    promoted = []
+    for (event_id, player_name, market_key, selection, point) in prev_watch:
+        row = conn.execute("""
+            SELECT * FROM daily_picks
+            WHERE pick_date=? AND event_id=? AND player_name=?
+              AND market_key=? AND selection=? AND point=?
+        """, [today, event_id, player_name, market_key, selection, point]).fetchone()
+        if row and row["recommendation"] in ("A_BET", "B_BET"):
+            promoted.append(dict(row))
+    return promoted
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--refresh", action="store_true",
+                        help="Re-pull odds mid-day, detect Watchlist promotions, skip grading")
+    args = parser.parse_args()
+
     api_key = os.environ.get("ODDS_API_KEY")
     if not api_key:
         print("ERROR: ODDS_API_KEY not set in .env")
@@ -486,9 +519,13 @@ def main() -> None:
 
     today     = _pt_date(0)
     yesterday = _pt_date(-1)
+    mode = "REFRESH" if args.refresh else "DAILY"
     print(f"\n{'='*50}")
-    print(f"MLB V2 Daily Run - {today}")
+    print(f"MLB V2 {mode} Run - {today}")
     print(f"{'='*50}")
+
+    # Snapshot Watchlist picks before re-pulling (refresh mode only)
+    prev_watch = _snapshot_watch_picks(conn, today) if args.refresh else {}
 
     # Pre-fetch game data (lineups, SPs, umpires) — one MLB Stats API call
     print("\n[1/4] Pre-fetching game data from MLB Stats API...")
@@ -519,6 +556,18 @@ def main() -> None:
     print("\n[3b] Scoring game totals...")
     games_eval, _ = _analyze_games(conn, pulled_at, today, game_data=game_data)
     print(f"  Game lines evaluated: {games_eval}")
+
+    # Detect and alert on Watchlist promotions (refresh mode only)
+    if args.refresh:
+        promoted = _detect_promotions(conn, today, prev_watch)
+        if promoted:
+            print(f"\n  *** {len(promoted)} Watchlist pick(s) promoted — sending alert ***")
+            from send_picks_email import send_promotion_alert
+            send_promotion_alert(promoted, today)
+        else:
+            print("\n  No Watchlist promotions this refresh")
+        conn.close()
+        return
 
     print(f"\n[4/4] Grading picks for {yesterday}...")
     graded = grade_pending_picks(conn, yesterday)
