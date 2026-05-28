@@ -151,7 +151,7 @@ def test_get_roi_by_tier_counts_graded_bets(conn):
     conn.execute("UPDATE daily_picks SET result='WIN', profit_units=0.69 WHERE id=%s", (pid,))
     conn.commit()
     rows = get_roi_by_tier(conn)
-    lean = next((r for r in rows if r["recommendation"] == "LEAN"), None)
+    lean = next((r for r in rows if r["recommendation"] == "B_BET"), None)
     assert lean is not None
     assert lean["wins"] >= 1
     # net_units reflects the entire live DB so we only verify the column is numeric

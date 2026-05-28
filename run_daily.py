@@ -24,7 +24,7 @@ from config import PICKS_DIR, BOVADA_KEYS, MIN_CONSENSUS_BOOKS
 from db import get_conn, init_db, upsert_pick, log_no_bet, get_snapshots, upsert_game_pick
 from pull_props import pull_and_store
 from consensus import compute_consensus, vig_remove_pair
-from edge import bovada_break_even, compute_edge, compute_ev, classify_by_score
+from edge import bovada_break_even, compute_edge, compute_ev, classify_by_score, is_bet_recommendation
 from grade import grade_pending_picks, grade_pending_game_picks
 from market_learn import compute_live_calibration, save_calibration
 from scorer import score_pick
@@ -167,7 +167,7 @@ def _analyze(conn, pulled_at: str, today: str,
                                     price=bov["price"])
 
             sim_prob = None
-            if rec in ("LEAN", "RECOMMENDED"):
+            if is_bet_recommendation(rec):
                 sim = simulate_pick(player_name, market_key, selection, point,
                                     int(today[:4]))
                 if sim:
@@ -309,7 +309,7 @@ def _print_summary(conn, pick_date: str, pulled_at: str) -> None:
                recommendation, signal_score, sim_prob, commence_time
         FROM daily_picks
         WHERE pick_date = ?
-          AND recommendation IN ('LEAN', 'RECOMMENDED')
+          AND recommendation IN ('A_BET', 'B_BET', 'RECOMMENDED', 'LEAN')
           AND sim_prob IS NOT NULL
           AND sim_prob >= bovada_break_even_prob
         ORDER BY commence_time ASC, recommendation DESC, sim_prob DESC, edge DESC
@@ -326,7 +326,7 @@ def _print_summary(conn, pick_date: str, pulled_at: str) -> None:
               f"{'BOVADA':>7}  {'EDGE':>6}  {'SIM%':>5}  {'BEV%':>5}  TIER")
         print("  " + "-" * 84)
         for p in bets:
-            tag = "**" if p["recommendation"] == "RECOMMENDED" else " >"
+            tag = "**" if p["recommendation"] in ("A_BET", "RECOMMENDED") else " >"
             mkt  = _MARKET_SHORT.get(p["market_key"], p["market_key"][:4])
             team = _team_abbr(p["player_name"], season)
             bev_pct = p["bovada_break_even_prob"] * 100
@@ -342,11 +342,11 @@ def _print_summary(conn, pick_date: str, pulled_at: str) -> None:
     rejected = conn.execute("""
         SELECT COUNT(*) AS cnt FROM daily_picks
         WHERE pick_date = ?
-          AND recommendation IN ('LEAN', 'RECOMMENDED')
+          AND recommendation IN ('A_BET', 'B_BET', 'RECOMMENDED', 'LEAN')
           AND (sim_prob IS NULL OR sim_prob < bovada_break_even_prob)
     """, (pick_date,)).fetchone()["cnt"]
     if rejected:
-        print(f"\n  ({rejected} LEAN/RECOMMENDED picks rejected by simulation or no data)")
+        print(f"\n  ({rejected} A/B bet candidates rejected by simulation or no data)")
 
     _print_one_sided(conn, pulled_at)
 
@@ -455,7 +455,7 @@ def _print_game_summary(conn, pick_date: str) -> None:
                edge, signal_score, recommendation, commence_time
         FROM daily_game_picks
         WHERE pick_date = ?
-          AND recommendation IN ('LEAN', 'RECOMMENDED')
+          AND recommendation IN ('A_BET', 'B_BET', 'RECOMMENDED', 'LEAN')
         ORDER BY commence_time ASC, recommendation DESC, signal_score DESC
     """, (pick_date,)).fetchall()
 
@@ -467,7 +467,7 @@ def _print_game_summary(conn, pick_date: str) -> None:
     print(f"  {'HOME':<20} {'AWAY':<20} {'SEL':<6} {'LINE':>4}  {'BOVADA':>6}  {'EDGE':>6}  {'SCORE':>5}  TIER")
     print("  " + "-" * 80)
     for r in rows:
-        tag = "**" if r["recommendation"] == "RECOMMENDED" else " >"
+        tag = "**" if r["recommendation"] in ("A_BET", "RECOMMENDED") else " >"
         print(
             f"{tag} {r['home_team']:<20} {r['away_team']:<20} {r['selection']:<6} "
             f"{r['point']:>4.1f}  {r['bovada_price']:>+6d}  "

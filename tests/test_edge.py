@@ -1,5 +1,8 @@
 import pytest
-from edge import bovada_break_even, compute_edge, compute_ev, classify
+from edge import (
+    bovada_break_even, compute_edge, compute_ev, classify,
+    classify_by_score, required_edge_for_price,
+)
 
 
 class TestBovadaBreakEven:
@@ -73,10 +76,32 @@ class TestClassify:
         assert classify(0.05, 0.03, market_key="pitcher_outs", selection="Over", price=160) == "NO_BET"
 
     def test_no_bet_price_at_boundary_min(self):
-        assert classify(0.05, 0.03, market_key="pitcher_outs", selection="Over", price=-145) == "RECOMMENDED"
+        assert classify(0.05, 0.03, market_key="pitcher_outs", selection="Over", price=-140) == "RECOMMENDED"
+
+    def test_no_bet_price_just_past_boundary_min(self):
+        assert classify(0.05, 0.03, market_key="pitcher_outs", selection="Over", price=-141) == "NO_BET"
 
     def test_no_bet_price_at_boundary_max(self):
         assert classify(0.05, 0.03, market_key="pitcher_outs", selection="Over", price=-101) == "RECOMMENDED"
 
     def test_ev_ignored_does_not_block_recommended(self):
         assert classify(0.05, -0.01, **GOOD_ARGS) == "RECOMMENDED"
+
+
+class TestClassifyByScore:
+    def test_required_edge_gets_stricter_with_juice(self):
+        assert required_edge_for_price(-140) == pytest.approx(0.03)
+        assert required_edge_for_price(-120) == pytest.approx(0.015)
+        assert required_edge_for_price(120) == pytest.approx(0.01)
+
+    def test_a_bet(self):
+        assert classify_by_score(70, 0.035, "batter_total_bases", "Under", -135) == "A_BET"
+
+    def test_b_bet(self):
+        assert classify_by_score(58, 0.020, "batter_total_bases", "Under", -115) == "B_BET"
+
+    def test_watch_when_price_edge_is_too_small(self):
+        assert classify_by_score(70, 0.010, "batter_total_bases", "Under", -135) == "WATCH"
+
+    def test_pass_when_price_is_too_heavy(self):
+        assert classify_by_score(80, 0.080, "batter_total_bases", "Under", -145) == "PASS"

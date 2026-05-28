@@ -28,6 +28,7 @@ from db import (
 )
 from config import DB_PATH, BET_PRICE_MIN, BET_PRICE_MAX
 from config import pt_date as _pt_date
+from edge import is_bet_recommendation, normalize_recommendation
 
 MARKET_LABELS = {
     "pitcher_strikeouts":   "Strikeouts",
@@ -150,6 +151,7 @@ hr { border-color: #252a38 !important; }
 }
 .pick.elite { border-top: 2px solid #6366f1; }
 .pick.good  { border-top: 2px solid #f59e0b; }
+.pick.pass  { border-top: 2px solid #475569; }
 .pick.game  { background: #191c26; border-left: 3px solid #2a3044; }
 
 /* Badges */
@@ -160,6 +162,7 @@ hr { border-color: #252a38 !important; }
 }
 .badge.elite { background: #1e1f3a; color: #818cf8; border: 1px solid #3730a3; }
 .badge.good  { background: #1f1a0a; color: #fbbf24; border: 1px solid #78350f; }
+.badge.pass  { background: #161a24; color: #64748b; border: 1px solid #334155; }
 
 /* Result pills */
 .r-win  { background:#0f2518;color:#34d399;border:1px solid #065f46;border-radius:20px;font-size:11px;font-weight:700;padding:3px 10px;display:inline-block; }
@@ -214,7 +217,13 @@ def _mkt(key: str) -> str:
 
 
 def _rec_label(rec: str) -> str:
-    return {"RECOMMENDED": "Elite", "LEAN": "Good", "NO_BET": "No Bet"}.get(rec, rec)
+    rec = normalize_recommendation(rec)
+    return {
+        "A_BET": "A Bet",
+        "B_BET": "B Bet",
+        "WATCH": "Watch",
+        "PASS": "Pass",
+    }.get(rec, rec)
 
 
 def _full_team(abbr: str) -> str:
@@ -222,7 +231,12 @@ def _full_team(abbr: str) -> str:
 
 
 def _tier(rec: str) -> str:
-    return "elite" if rec == "RECOMMENDED" else "good"
+    rec = normalize_recommendation(rec)
+    if rec == "A_BET":
+        return "elite"
+    if rec == "PASS":
+        return "pass"
+    return "good"
 
 
 def _render_stat(col, value: str, label: str, color: str = "#f1f5f9") -> None:
@@ -609,9 +623,15 @@ def _prop_card_html(p: dict) -> str:
     lbl      = _rec_label(p["recommendation"])
     score    = p["signal_score"] or 0
     bar_pct  = min(score, 100)
-    bar_grad = ("linear-gradient(90deg,#4f46e5,#818cf8)"
-                if t == "elite" else "linear-gradient(90deg,#b45309,#fbbf24)")
-    edge_col = "#818cf8" if t == "elite" else "#fbbf24"
+    if t == "elite":
+        bar_grad = "linear-gradient(90deg,#4f46e5,#818cf8)"
+        edge_col = "#818cf8"
+    elif t == "pass":
+        bar_grad = "linear-gradient(90deg,#1e2330,#334155)"
+        edge_col = "#64748b"
+    else:
+        bar_grad = "linear-gradient(90deg,#b45309,#fbbf24)"
+        edge_col = "#fbbf24"
 
     p_name    = _html.escape(str(p["player_name"]))
     team      = _html.escape(_full_team(p.get("team_abbr") or ""))
@@ -670,9 +690,15 @@ def _game_card_html(p: dict) -> str:
     lbl      = _rec_label(p["recommendation"])
     score    = p["signal_score"] or 0
     bar_pct  = min(score, 100)
-    bar_grad = ("linear-gradient(90deg,#4f46e5,#818cf8)"
-                if t == "elite" else "linear-gradient(90deg,#b45309,#fbbf24)")
-    edge_col = "#818cf8" if t == "elite" else "#fbbf24"
+    if t == "elite":
+        bar_grad = "linear-gradient(90deg,#4f46e5,#818cf8)"
+        edge_col = "#818cf8"
+    elif t == "pass":
+        bar_grad = "linear-gradient(90deg,#1e2330,#334155)"
+        edge_col = "#64748b"
+    else:
+        bar_grad = "linear-gradient(90deg,#b45309,#fbbf24)"
+        edge_col = "#fbbf24"
 
     away      = _html.escape(str(p.get("away_team") or "?"))
     home      = _html.escape(str(p.get("home_team") or "?"))
@@ -758,18 +784,21 @@ def _track_strip(conn, p: dict, id_field: str = "id") -> None:
         )
         return
 
-    max_units = 3 if score > 75 else 2
+    rec = normalize_recommendation(p.get("recommendation", ""))
+    max_units = 1.5 if rec == "A_BET" else 1.0
+    default_units = 1.0 if rec == "A_BET" else 0.5
+    step_units = 0.5 if rec == "A_BET" else 0.25
     u_col, b_col, s_col, _ = st.columns([1.2, 1.2, 0.9, 3])
 
     units = u_col.number_input(
         "Units",
-        min_value=1.0,
+        min_value=0.25,
         max_value=float(max_units),
-        value=1.0,
-        step=1.0,
+        value=default_units,
+        step=step_units,
         key=f"u_{pick_id}",
         label_visibility="collapsed",
-        help=f"Max {max_units}u — score must be >75 for 3u",
+        help=f"Max {max_units:g}u for {_rec_label(p.get('recommendation', ''))}",
     )
     if b_col.button("Track Bet", key=f"b_{pick_id}"):
         mark_bet_placed(conn, pick_id, units)
@@ -780,11 +809,10 @@ def _track_strip(conn, p: dict, id_field: str = "id") -> None:
         conn.close()
         st.rerun()
 
-    if max_units < 3:
-        st.markdown(
-            '<div style="font-size:10px;color:#3a4058;margin-top:2px">3u requires score &gt; 75</div>',
-            unsafe_allow_html=True,
-        )
+    st.markdown(
+        '<div style="font-size:10px;color:#3a4058;margin-top:2px">A Bets: max 1.5u default 1u; B Bets: max 1u default 0.5u</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def _game_track_strip(conn, p: dict) -> None:
@@ -815,12 +843,15 @@ def _game_track_strip(conn, p: dict) -> None:
         )
         return
 
-    max_units = 3 if score > 75 else 2
+    rec = normalize_recommendation(p.get("recommendation", ""))
+    max_units = 1.5 if rec == "A_BET" else 1.0
+    default_units = 1.0 if rec == "A_BET" else 0.5
+    step_units = 0.5 if rec == "A_BET" else 0.25
     u_col, b_col, s_col, _ = st.columns([1.2, 1.2, 0.9, 3])
     units = u_col.number_input(
-        "Units", min_value=1.0, max_value=float(max_units), value=1.0, step=1.0,
+        "Units", min_value=0.25, max_value=float(max_units), value=default_units, step=step_units,
         key=f"gu_{pick_id}", label_visibility="collapsed",
-        help=f"Max {max_units}u — score must be >75 for 3u",
+        help=f"Max {max_units:g}u for {_rec_label(p.get('recommendation', ''))}",
     )
     if b_col.button("Track Bet", key=f"gb_{pick_id}"):
         mark_game_bet_placed(conn, pick_id, units)
@@ -830,11 +861,10 @@ def _game_track_strip(conn, p: dict) -> None:
         mark_game_bet_skipped(conn, pick_id)
         conn.close()
         st.rerun()
-    if max_units < 3:
-        st.markdown(
-            '<div style="font-size:10px;color:#3a4058;margin-top:2px">3u requires score &gt; 75</div>',
-            unsafe_allow_html=True,
-        )
+    st.markdown(
+        '<div style="font-size:10px;color:#3a4058;margin-top:2px">A Bets: max 1.5u default 1u; B Bets: max 1u default 0.5u</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def _render_game_picks(conn, picks: list, show_all: bool, min_score: int,
@@ -846,7 +876,8 @@ def _render_game_picks(conn, picks: list, show_all: bool, min_score: int,
     def _passes(p):
         if p.get("bet_placed") == 1:
             return True
-        if not (show_all or p["recommendation"] in ("LEAN", "RECOMMENDED")):
+        rec = normalize_recommendation(p["recommendation"])
+        if not (show_all or is_bet_recommendation(p["recommendation"]) or rec == "WATCH"):
             return False
         if p["bovada_price"] is None or not (BET_PRICE_MIN <= p["bovada_price"] <= BET_PRICE_MAX):
             return False
@@ -893,7 +924,13 @@ def _render_game_picks(conn, picks: list, show_all: bool, min_score: int,
             with st.expander(f"Why {tier_lbl}?"):
                 _why_content(pick, breakdown, None, None)
 
-        _game_track_strip(conn, pick)
+        if is_bet_recommendation(pick["recommendation"]):
+            _game_track_strip(conn, pick)
+        elif (pick.get("result") or "PENDING") == "PENDING":
+            st.markdown(
+                '<div style="padding:6px 0 2px;font-size:12px;color:#64748b">Watch only</div>',
+                unsafe_allow_html=True,
+            )
 
 
 def _render_today(conn, today: str) -> None:
@@ -902,7 +939,7 @@ def _render_today(conn, today: str) -> None:
         st.info("No picks for today. Run the pipeline first.")
         return
 
-    _REC_ORDER = {"RECOMMENDED": 0, "LEAN": 1, "NO_BET": 2}
+    _REC_ORDER = {"A_BET": 0, "RECOMMENDED": 0, "B_BET": 1, "LEAN": 1, "WATCH": 2, "NO_BET": 2, "PASS": 3}
     picks = sorted(picks, key=lambda p: (
         _REC_ORDER.get(p["recommendation"], 2),
         -(p["sim_prob"] or 0),
@@ -921,20 +958,21 @@ def _render_today(conn, today: str) -> None:
     def _passes(p):
         if p.get("bet_placed") == 1:
             return True
-        if not (show_all or p["recommendation"] in ("LEAN", "RECOMMENDED")):
+        rec = normalize_recommendation(p["recommendation"])
+        if not (show_all or is_bet_recommendation(p["recommendation"]) or rec == "WATCH"):
             return False
         if p["bovada_price"] is None or not (BET_PRICE_MIN <= p["bovada_price"] <= BET_PRICE_MAX):
             return False
         if p["signal_score"] is not None and p["signal_score"] < min_score:
             return False
-        if sim_only and p["recommendation"] in ("LEAN", "RECOMMENDED"):
+        if sim_only and is_bet_recommendation(p["recommendation"]):
             if p["sim_prob"] is None or p["sim_prob"] < p["bovada_break_even_prob"]:
                 return False
         return True
 
     # Day summary bar — counts based on current filter state
-    prop_bet  = sum(1 for p in picks if _passes(p) and p["recommendation"] in ("LEAN", "RECOMMENDED"))
-    game_bet  = sum(1 for p in game_picks_all if p["recommendation"] in ("LEAN", "RECOMMENDED"))
+    prop_bet  = sum(1 for p in picks if _passes(p) and is_bet_recommendation(p["recommendation"]))
+    game_bet  = sum(1 for p in game_picks_all if is_bet_recommendation(p["recommendation"]))
     live_pnl  = sum(
         (p.get("profit_units") or 0)
         for lst in (picks, game_picks_all)
@@ -984,12 +1022,13 @@ def _render_today(conn, today: str) -> None:
         st.info("No picks match current filters.")
         return
 
-    # Group Elite then Good
-    elite_picks = [p for p in visible if p["recommendation"] == "RECOMMENDED"]
-    good_picks  = [p for p in visible if p["recommendation"] == "LEAN"]
+    # Group A/B bets first, then watchlist candidates.
+    elite_picks = [p for p in visible if normalize_recommendation(p["recommendation"]) == "A_BET"]
+    good_picks  = [p for p in visible if normalize_recommendation(p["recommendation"]) == "B_BET"]
+    watch_picks = [p for p in visible if normalize_recommendation(p["recommendation"]) == "WATCH"]
 
     if elite_picks:
-        st.markdown('<div class="section-label">Elite Picks</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-label">A Bets</div>', unsafe_allow_html=True)
         for p in elite_picks:
             st.markdown(_prop_card_html(p), unsafe_allow_html=True)
             tier_lbl = _rec_label(p["recommendation"])
@@ -1003,7 +1042,7 @@ def _render_today(conn, today: str) -> None:
             _track_strip(conn, p)
 
     if good_picks:
-        st.markdown('<div class="section-label">Good Picks</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-label">B Bets</div>', unsafe_allow_html=True)
         for p in good_picks:
             st.markdown(_prop_card_html(p), unsafe_allow_html=True)
             tier_lbl = _rec_label(p["recommendation"])
@@ -1015,6 +1054,19 @@ def _render_today(conn, today: str) -> None:
             with st.expander(f"Why {tier_lbl}?"):
                 _why_content(p, breakdown, p.get("sim_prob"), p.get("bovada_break_even_prob"))
             _track_strip(conn, p)
+
+    if watch_picks:
+        st.markdown('<div class="section-label">Watchlist</div>', unsafe_allow_html=True)
+        for p in watch_picks:
+            st.markdown(_prop_card_html(p), unsafe_allow_html=True)
+            tier_lbl = _rec_label(p["recommendation"])
+            breakdown_raw = p.get("signal_breakdown") or "[]"
+            try:
+                breakdown = json.loads(breakdown_raw)
+            except Exception:
+                breakdown = []
+            with st.expander(f"Why {tier_lbl}?"):
+                _why_content(p, breakdown, p.get("sim_prob"), p.get("bovada_break_even_prob"))
 
 
 def _render_active_bets(conn) -> None:
@@ -1043,13 +1095,14 @@ def _render_history(conn) -> None:
     from datetime import datetime as _dt
 
     tier_filter = st.selectbox(
-        "Tier", ["RECOMMENDED + LEAN", "RECOMMENDED only", "LEAN only"],
+        "Tier", ["A + B Bets", "A Bets only", "B Bets only", "Watchlist"],
         key="hist_tier",
     )
     tiers = (
-        ("RECOMMENDED", "LEAN") if "+" in tier_filter
-        else ("RECOMMENDED",) if "RECOMMENDED only" in tier_filter
-        else ("LEAN",)
+        ("A_BET", "B_BET", "RECOMMENDED", "LEAN") if tier_filter == "A + B Bets"
+        else ("A_BET", "RECOMMENDED") if tier_filter == "A Bets only"
+        else ("B_BET", "LEAN") if tier_filter == "B Bets only"
+        else ("WATCH",)
     )
     placeholders = ",".join("?" * len(tiers))
 
@@ -1141,10 +1194,10 @@ def _render_learning(conn) -> None:
                 THEN COALESCE(profit_units,0) ELSE 0 END)::numeric, 2) AS net_units
         FROM (
             SELECT result, profit_units FROM daily_picks
-            WHERE bet_placed=1 AND recommendation IN ('LEAN','RECOMMENDED')
+            WHERE bet_placed=1 AND recommendation IN ('A_BET','B_BET','LEAN','RECOMMENDED')
             UNION ALL
             SELECT result, profit_units FROM daily_game_picks
-            WHERE bet_placed=1 AND recommendation IN ('LEAN','RECOMMENDED')
+            WHERE bet_placed=1 AND recommendation IN ('A_BET','B_BET','LEAN','RECOMMENDED')
         )
     """).fetchone()
 

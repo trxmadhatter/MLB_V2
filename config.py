@@ -88,8 +88,8 @@ MARKET_EXCLUDE_PLUS_ODDS: set[tuple[str, str]] = {
     ("pitcher_outs", "Over"),   # +100 or better: 38.3% WR, -8.80u in backtest
 }
 
-# Price range filter: -151 to +150 (worse than -151 = too much juice; above +150 = suspect line)
-BET_PRICE_MIN = -151
+# Price range filter: -140 to +150 (worse than -140 = too much juice; above +150 = suspect line)
+BET_PRICE_MIN = -140
 BET_PRICE_MAX = 150
 
 # Max recommended picks emitted per day
@@ -105,8 +105,9 @@ PICKS_DIR = ROOT / "data" / "picks"
 
 # ── Signal scoring ────────────────────────────────────────────────────────────
 
-SCORE_RECOMMENDED = 65   # score >= this -> RECOMMENDED
-SCORE_LEAN        = 45   # score >= this -> LEAN (else NO_BET)
+SCORE_RECOMMENDED = 65   # score >= this -> A_BET
+SCORE_LEAN        = 55   # score >= this -> B_BET, 45+ can remain WATCH
+SCORE_WATCH       = 45
 
 # Per-market signal weights. Values are max points each signal can contribute.
 # Sum of each dict should equal 100.

@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 
 from db import get_conn
+from edge import normalize_recommendation
 
 
 def _fmt_odds(price: int) -> str:
@@ -24,7 +25,14 @@ def _fmt_odds(price: int) -> str:
 
 
 def _rec_color(rec: str) -> str:
-    return "#ff6b35" if rec == "RECOMMENDED" else "#00b894"
+    rec = normalize_recommendation(rec)
+    return "#ff6b35" if rec == "A_BET" else "#00b894"
+
+
+def _rec_label(rec: str) -> str:
+    return {"A_BET": "A BET", "B_BET": "B BET", "WATCH": "WATCH"}.get(
+        normalize_recommendation(rec), rec
+    )
 
 
 def _result_color(result: str) -> tuple[str, str]:
@@ -44,7 +52,7 @@ def get_today_game_picks(conn, today: str) -> list[dict]:
                bovada_price, edge, recommendation, signal_score
         FROM daily_game_picks
         WHERE pick_date = ?
-          AND recommendation IN ('RECOMMENDED','LEAN')
+          AND recommendation IN ('A_BET','B_BET','RECOMMENDED','LEAN')
         ORDER BY recommendation DESC, signal_score DESC
     """, (today,)).fetchall()]
 
@@ -55,7 +63,7 @@ def get_yesterday_game_results(conn, yesterday: str) -> list[dict]:
                bovada_price, edge, result, recommendation
         FROM daily_game_picks
         WHERE pick_date = ?
-          AND recommendation IN ('RECOMMENDED','LEAN')
+          AND recommendation IN ('A_BET','B_BET','RECOMMENDED','LEAN')
         ORDER BY result, edge DESC
     """, (yesterday,)).fetchall()]
 
@@ -67,7 +75,7 @@ def get_today_picks(conn, today: str) -> list[dict]:
                home_team, away_team
         FROM daily_picks
         WHERE pick_date = ?
-          AND recommendation IN ('RECOMMENDED','LEAN')
+          AND recommendation IN ('A_BET','B_BET','RECOMMENDED','LEAN')
           AND sim_prob IS NOT NULL
           AND sim_prob >= bovada_break_even_prob
         ORDER BY recommendation DESC, sim_prob DESC, edge DESC
@@ -80,7 +88,7 @@ def get_today_picks(conn, today: str) -> list[dict]:
                    home_team, away_team
             FROM daily_picks
             WHERE pick_date = ?
-              AND recommendation IN ('RECOMMENDED','LEAN')
+              AND recommendation IN ('A_BET','B_BET','RECOMMENDED','LEAN')
             ORDER BY recommendation DESC, edge DESC
         """, (today,)).fetchall()]
         if rows:
@@ -94,7 +102,7 @@ def get_yesterday_results(conn, yesterday: str) -> list[dict]:
                bovada_price, edge, result, recommendation
         FROM daily_picks
         WHERE pick_date = ?
-          AND recommendation IN ('RECOMMENDED','LEAN')
+          AND recommendation IN ('A_BET','B_BET','RECOMMENDED','LEAN')
         ORDER BY result, edge DESC
     """, (yesterday,)).fetchall()]
 
@@ -107,7 +115,7 @@ def get_running_record(conn) -> dict:
             SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END)            AS losses,
             SUM(CASE WHEN result='PUSH' THEN 1 ELSE 0 END)            AS pushes
         FROM daily_picks
-        WHERE recommendation IN ('RECOMMENDED','LEAN')
+        WHERE recommendation IN ('A_BET','B_BET','RECOMMENDED','LEAN')
           AND result IN ('WIN','LOSS','PUSH')
     """).fetchone()
     if not row or row["total"] == 0:
@@ -115,7 +123,7 @@ def get_running_record(conn) -> dict:
 
     picks = conn.execute("""
         SELECT bovada_price, result FROM daily_picks
-        WHERE recommendation IN ('RECOMMENDED','LEAN')
+        WHERE recommendation IN ('A_BET','B_BET','RECOMMENDED','LEAN')
           AND result IN ('WIN','LOSS','PUSH')
     """).fetchall()
 
@@ -172,7 +180,7 @@ def picks_table(picks: list[dict]) -> str:
           </td>
           <td style="padding:11px 14px;border-bottom:1px solid #1a2a3a;">
             <span style="background:{color};color:#fff;padding:3px 9px;border-radius:4px;
-                         font-size:11px;font-weight:700;">{p['recommendation']}</span>
+                         font-size:11px;font-weight:700;">{_rec_label(p['recommendation'])}</span>
           </td>
         </tr>"""
 
@@ -264,7 +272,7 @@ def game_picks_table(picks: list[dict]) -> str:
           </td>
           <td style="padding:11px 14px;border-bottom:1px solid #1a2a3a;">
             <span style="background:{color};color:#fff;padding:3px 9px;border-radius:4px;
-                         font-size:11px;font-weight:700;">{p['recommendation']}</span>
+                         font-size:11px;font-weight:700;">{_rec_label(p['recommendation'])}</span>
           </td>
         </tr>"""
 
@@ -415,14 +423,14 @@ def send(today_picks, yesterday_picks, record, today, yesterday,
     for p in today_picks:
         plain_lines.append(
             f"{p['player_name']} | {p['market_key']} | {p['selection']} {p['point']} | "
-            f"{_fmt_odds(p['bovada_price'])} | {p['edge']*100:+.1f}% edge | {p['recommendation']}"
+            f"{_fmt_odds(p['bovada_price'])} | {p['edge']*100:+.1f}% edge | {_rec_label(p['recommendation'])}"
         )
     plain_lines += ["", "=== TODAY'S GAME TOTALS ==="]
     for p in today_game_picks:
         direction = "Over" if p["selection"].lower() == "over" else "Under"
         plain_lines.append(
             f"{p.get('away_team','?')} @ {p.get('home_team','?')} | {direction} {p['point']} | "
-            f"{_fmt_odds(p['bovada_price'])} | {p['edge']*100:+.1f}% edge | {p['recommendation']}"
+            f"{_fmt_odds(p['bovada_price'])} | {p['edge']*100:+.1f}% edge | {_rec_label(p['recommendation'])}"
         )
     plain_lines += ["", "=== YESTERDAY'S PROP RESULTS ==="]
     for p in yesterday_picks:

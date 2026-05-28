@@ -77,8 +77,10 @@ def main() -> None:
         print(f"\nVOIDed {voided} picks still PENDING after {VOID_AFTER_DAYS}+ days (DNP/postponed).")
 
     pending_dates = _get_pending_dates(conn)
-    # Exclude today — games aren't final yet
-    dates_to_grade = [d for d in pending_dates if d != today]
+    # Nightly runs after games should be final. The grading functions only
+    # update rows for games MLB marks Final, so today's unfinished games stay
+    # PENDING and can be picked up by the next run.
+    dates_to_grade = [d for d in pending_dates if d <= today]
 
     if not dates_to_grade:
         print("\nNo pending picks to grade.")

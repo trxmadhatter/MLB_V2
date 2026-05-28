@@ -8,7 +8,7 @@ from datetime import datetime
 
 import logging
 
-from config import SIGNAL_WEIGHTS, SCORE_RECOMMENDED, SCORE_LEAN
+from config import SIGNAL_WEIGHTS, SCORE_RECOMMENDED, SCORE_LEAN, SCORE_WATCH
 from signals.parks import get_park
 from signals.weather import get_weather
 
@@ -678,9 +678,11 @@ def score_pick(
 
 
 def tier_from_score(score: int) -> str:
-    """RECOMMENDED / LEAN / NO_BET based on score thresholds."""
+    """A_BET / B_BET / WATCH / PASS based on score thresholds only."""
     if score >= SCORE_RECOMMENDED:
-        return "RECOMMENDED"
+        return "A_BET"
     if score >= SCORE_LEAN:
-        return "LEAN"
-    return "NO_BET"
+        return "B_BET"
+    if score >= SCORE_WATCH:
+        return "WATCH"
+    return "PASS"

@@ -103,7 +103,7 @@ def compute_live_calibration(live_conn) -> list[dict]:
         SELECT market_key, selection, edge, bovada_price, result, profit_units
         FROM daily_picks
         WHERE result IN ('WIN', 'LOSS', 'PUSH')
-          AND recommendation IN ('RECOMMENDED', 'LEAN')
+          AND recommendation IN ('A_BET', 'B_BET', 'RECOMMENDED', 'LEAN')
           AND edge IS NOT NULL AND edge >= 0
     """).fetchall()
 
@@ -111,7 +111,7 @@ def compute_live_calibration(live_conn) -> list[dict]:
         SELECT 'totals' AS market_key, selection, edge, bovada_price, result, profit_units
         FROM daily_game_picks
         WHERE result IN ('WIN', 'LOSS', 'PUSH')
-          AND recommendation IN ('RECOMMENDED', 'LEAN')
+          AND recommendation IN ('A_BET', 'B_BET', 'RECOMMENDED', 'LEAN')
           AND edge IS NOT NULL AND edge >= 0
     """).fetchall()
 
