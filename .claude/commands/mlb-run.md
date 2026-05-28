@@ -2,33 +2,47 @@
 
 Run the full daily pipeline: pull odds, compute picks, send email, verify scheduled tasks are healthy.
 
-## Steps
+## How the morning run works
+
+The 10AM task runs `run_morning.bat` which:
+1. Runs `python run_daily.py` — if it fails, waits 60s and retries once
+2. Always runs `python send_picks_email.py` regardless of pipeline result
+3. Always runs `push_status.bat` to commit and push `data/status.json` to GitHub
+
+Do NOT run steps individually unless debugging. Use `run_morning.bat` to match what the scheduler does.
+
+## Manual run steps (if needed)
 
 1. **Check if already ran today**
-   - Query `daily_picks` for today's date — if rows exist, skip `run_daily.py` and go to step 3
-   - If no rows, run `python run_daily.py`
+   - Query `daily_picks` for today's date — if rows exist, skip `run_daily.py`
+   - Or just run `run_morning.bat` — it handles everything
 
-2. **Send picks email**
-   - Run `python send_picks_email.py`
-   - Confirm "Email sent" in output
+2. **Run manually**
+   ```
+   cmd /c C:\Users\jesse\MLB_V2\run_morning.bat
+   ```
 
 3. **Verify scheduled tasks are healthy**
-   - Check `MLB_V2_10AM_Refresh` last result (should be 0)
-   - Check `MLB_V2_Refresh` next run time is today or tomorrow at 12pm
-   - If last result is non-zero on either task, invoke `/mlb-diagnose`
+   ```powershell
+   $tasks = @("MLB_V2_10AM_Refresh", "MLB_V2_Refresh")
+   foreach ($t in $tasks) {
+       $i = Get-ScheduledTaskInfo -TaskName $t
+       Write-Host "$t | Last result: $($i.LastTaskResult) | Next: $($i.NextRunTime)"
+   }
+   ```
+   - Result `0` = success. Non-zero = check `data/daily_log.txt` tail, then invoke `/mlb-diagnose`
 
-4. **Report summary**
-   - Today's date, picks evaluated, bets/leans/watches found
-   - Email status
-   - Next refresh time
-   - Any warnings (FanGraphs 403, quota remaining, etc.)
+4. **Check status file**
+   - `data/status.json` is pushed to GitHub after every run
+   - Should show today's date, `pipeline_success: true`, `email_sent: true`
 
 ## Known issues and fixes
 
-- **`init_db` statement timeout** (`psycopg2.errors.QueryCanceled`): Fixed in db.py with savepoints — if this recurs, check for long-running Postgres queries holding locks
-- **FanGraphs 403**: Transient — signal scoring runs without pitcher FanGraphs data, not fatal
-- **`&&` chain breaks if run_daily.py exits non-zero**: The 10AM task uses `&&` so email won't send if pipeline crashes — check `data/daily_log.txt` tail for the error
-- **Streamlit dashboard**: Deployed at Streamlit Cloud, not run locally — do NOT launch `streamlit run dashboard.py` locally
+- **`init_db` statement timeout** (`psycopg2.errors.QueryCanceled`): Fixed in `db.py` with savepoints — each `ALTER TABLE` migration is independent; transient lock timeouts no longer crash the pipeline
+- **FanGraphs 403**: Transient — signal scoring continues without pitcher FanGraphs data, not fatal
+- **Email didn't send**: `run_morning.bat` now runs email unconditionally — if this happens, check `data/daily_log.txt` tail for a crash in `send_picks_email.py` itself
+- **Streamlit dashboard**: Deployed at Streamlit Cloud, reads DB directly — do NOT launch `streamlit run dashboard.py` locally
+- **Remote health check**: Scheduled at 10:15am PT via Claude routines — reads `data/status.json` from GitHub and reports STATUS: OK or STATUS: FAILED
 
 ## Self-update rule
 
