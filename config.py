@@ -34,6 +34,8 @@ V1_MARKETS = [
     "batter_hits",
     "batter_total_bases",
     "totals",
+    "h2h",
+    "spreads",
 ]
 
 # All player prop markets to test and backtest
@@ -76,6 +78,10 @@ BET_WHITELIST: set[tuple[str, str]] = {
     ("batter_hits",          "Under"),   # calibration blocks currently unprofitable buckets
     ("totals",               "Over"),
     ("totals",               "Under"),
+    ("h2h",                  "Home"),
+    ("h2h",                  "Away"),
+    ("spreads",              "Home"),
+    ("spreads",              "Away"),
 }
 
 # Per-market minimum edge overrides (applied on top of global EDGE_MIN_BET)

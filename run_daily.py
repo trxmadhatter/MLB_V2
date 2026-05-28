@@ -357,14 +357,13 @@ def _print_summary(conn, pick_date: str, pulled_at: str) -> None:
 def _analyze_games(conn, pulled_at: str, today: str,
                    game_data: dict | None = None) -> tuple[int, int]:
     """
-    Score game totals (Over/Under) using consensus/edge infrastructure.
+    Score game totals (Over/Under), moneyline (h2h), and run line (spreads).
+    Selections stored as 'Over'/'Under' for totals, 'Home'/'Away' for h2h/spreads.
     Returns (games_evaluated, no_bets_logged).
-    No-bets for game totals are silently skipped (no no_bets table for games).
     """
+    GAME_MARKETS = {"totals", "h2h", "spreads"}
     rows = [dict(r) for r in get_snapshots(conn, pulled_at)]
-    # Filter to totals rows only (player_name == "" distinguishes game totals)
-    rows = [r for r in rows if r["market_key"] == "totals" and r["player_name"] == ""]
-    # Only process games scheduled for today (PT) — prevents stale future events
+    rows = [r for r in rows if r["market_key"] in GAME_MARKETS and r["player_name"] == ""]
     rows = [r for r in rows if _commence_date_pt(r["commence_time"]) == today]
 
     groups: dict[tuple, list[dict]] = defaultdict(list)
@@ -381,44 +380,73 @@ def _analyze_games(conn, pulled_at: str, today: str,
 
         meta = bovada_rows[0]
 
-        bov_over  = next((r for r in bovada_rows if r["selection"] == "Over"),  None)
-        bov_under = next((r for r in bovada_rows if r["selection"] == "Under"), None)
+        if market_key == "totals":
+            bov_a = next((r for r in bovada_rows if r["selection"] == "Over"),  None)
+            bov_b = next((r for r in bovada_rows if r["selection"] == "Under"), None)
+            sel_a, sel_b = "Over", "Under"
+        else:
+            # h2h/spreads: selections are team names — normalize to Home/Away
+            bov_a = next((r for r in bovada_rows
+                          if r["selection"].lower() == meta["home_team"].lower()), None)
+            bov_b = next((r for r in bovada_rows
+                          if r["selection"].lower() == meta["away_team"].lower()), None)
+            sel_a, sel_b = "Home", "Away"
 
-        if bov_over is None or bov_under is None or bov_over["point"] != bov_under["point"]:
-            continue  # no no_bets table for game picks; just skip
+        if bov_a is None or bov_b is None:
+            continue
 
-        point = bov_over["point"]
+        if market_key == "totals":
+            if bov_a["point"] != bov_b["point"]:
+                continue
+            if bov_a["point"] < 7.0:
+                continue  # skip F5 / alternate totals
 
-        if point < 7.0:
-            continue  # skip F5 / alternate totals — full-game MLB lines are always >= 7
+        bov_fair_a, bov_fair_b = vig_remove_pair(bov_a["price"], bov_b["price"])
 
-        bov_fair_over, bov_fair_under = vig_remove_pair(bov_over["price"], bov_under["price"])
+        # consensus requires 'Over'/'Under' selections — map team names for h2h/spreads
+        if market_key != "totals":
+            consensus_rows = []
+            for r in group_rows:
+                r2 = dict(r)
+                if r2["selection"].lower() == meta["home_team"].lower():
+                    r2["selection"] = "Over"
+                elif r2["selection"].lower() == meta["away_team"].lower():
+                    r2["selection"] = "Under"
+                else:
+                    continue
+                consensus_rows.append(r2)
+        else:
+            consensus_rows = group_rows
 
         consensus = compute_consensus(
-            group_rows,
+            consensus_rows,
             min_books=MIN_CONSENSUS_BOOKS,
             bovada_keys=BOVADA_KEYS,
         )
 
-        for selection in ("Over", "Under"):
-            bov      = bov_over  if selection == "Over"  else bov_under
-            bov_fair = bov_fair_over if selection == "Over" else bov_fair_under
-
+        for selection, bov, bov_fair in (
+            (sel_a, bov_a, bov_fair_a),
+            (sel_b, bov_b, bov_fair_b),
+        ):
             if not consensus["ok"]:
-                continue  # skip silently for game picks
+                continue
 
+            is_a_side = selection in ("Over", "Home")
             fair_prob = (
-                consensus["fair_prob_over"] if selection == "Over"
+                consensus["fair_prob_over"] if is_a_side
                 else consensus["fair_prob_under"]
             )
             bev  = bovada_break_even(bov["price"])
             edge = compute_edge(fair_prob, bov_fair)
 
+            # score_game_total expects 'Over'/'Under'; Home→Over, Away→Under
+            total_sel   = "Over" if is_a_side else "Under"
+            total_point = bov_a["point"] if market_key == "totals" else 8.5
             sig_score, breakdown = score_game_total(
                 home_team=meta["home_team"],
                 away_team=meta["away_team"],
-                selection=selection,
-                point=point,
+                selection=total_sel,
+                point=total_point,
                 edge=edge,
                 game_date=today,
                 game_data=game_data,
@@ -436,7 +464,7 @@ def _analyze_games(conn, pulled_at: str, today: str,
                 "away_team":              meta["away_team"],
                 "market_key":             market_key,
                 "selection":              selection,
-                "point":                  point,
+                "point":                  bov["point"],
                 "bovada_price":           bov["price"],
                 "bovada_break_even_prob": round(bev,       6),
                 "bovada_fair_prob":       round(bov_fair,  6),

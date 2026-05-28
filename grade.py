@@ -162,8 +162,19 @@ def grade_pending_game_picks(conn, results_date: str) -> int:
         if not matched:
             continue
 
-        actual_total = matched["home_runs"] + matched["away_runs"]
-        result = grade_outcome(pick["selection"], pick["point"], actual_total)
+        if pick["market_key"] == "totals":
+            actual_total = matched["home_runs"] + matched["away_runs"]
+            result = grade_outcome(pick["selection"], pick["point"], actual_total)
+        else:
+            # h2h / spreads: grade by run differential ± spread point
+            is_home   = pick["selection"] == "Home"
+            score_for = matched["home_runs"] if is_home else matched["away_runs"]
+            score_agn = matched["away_runs"] if is_home else matched["home_runs"]
+            adjusted  = score_for - score_agn + pick["point"]
+            if adjusted > 0:   result = "WIN"
+            elif adjusted < 0: result = "LOSS"
+            else:              result = "PUSH"
+            actual_total = matched["home_runs"] + matched["away_runs"]
         units  = pick["units_wagered"] or 1.0
         profit = round(calc_profit(result, pick["bovada_price"]) * units, 4)
         update_game_pick_result(

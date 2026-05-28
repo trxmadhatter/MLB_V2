@@ -74,7 +74,7 @@ def parse_snapshots(
                         "market_key":    market["key"],
                         "player_name":   outcome.get("description", ""),
                         "selection":     outcome["name"],
-                        "point":         float(outcome["point"]),
+                        "point":         float(outcome.get("point", 0.0)),
                         "price":         int(outcome["price"]),
                     })
     return rows
