@@ -503,6 +503,38 @@ def _detect_promotions(conn, today: str, prev_watch: dict) -> list[dict]:
     return promoted
 
 
+def _snapshot_game_bets(conn, today: str) -> dict:
+    """Return {(event_id, market_key, selection): (recommendation, edge)} for bet game picks."""
+    rows = conn.execute("""
+        SELECT event_id, market_key, selection, recommendation, edge
+        FROM daily_game_picks
+        WHERE pick_date = ? AND bet_placed = 1
+          AND recommendation IN ('A_BET','B_BET','RECOMMENDED','LEAN')
+    """, [today]).fetchall()
+    return {(r["event_id"], r["market_key"], r["selection"]): (r["recommendation"], r["edge"])
+            for r in rows}
+
+
+def _detect_game_degradations(conn, today: str, prev_bets: dict) -> list[dict]:
+    """Return bet game picks whose edge has dropped below their tier minimum."""
+    from config import EDGE_RECOMMENDED, EDGE_LEAN
+    from edge import normalize_recommendation
+    degraded = []
+    for (event_id, market_key, selection), (rec, _old_edge) in prev_bets.items():
+        row = conn.execute("""
+            SELECT * FROM daily_game_picks
+            WHERE pick_date=? AND event_id=? AND market_key=? AND selection=?
+        """, [today, event_id, market_key, selection]).fetchone()
+        if not row:
+            continue
+        new_edge = row["edge"] or 0.0
+        norm = normalize_recommendation(rec)
+        floor = EDGE_RECOMMENDED if norm == "A_BET" else EDGE_LEAN
+        if new_edge < floor:
+            degraded.append(dict(row))
+    return degraded
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--refresh", action="store_true",
@@ -524,8 +556,9 @@ def main() -> None:
     print(f"MLB V2 {mode} Run - {today}")
     print(f"{'='*50}")
 
-    # Snapshot Watchlist picks before re-pulling (refresh mode only)
-    prev_watch = _snapshot_watch_picks(conn, today) if args.refresh else {}
+    # Snapshot state before re-pulling (refresh mode only)
+    prev_watch     = _snapshot_watch_picks(conn, today) if args.refresh else {}
+    prev_game_bets = _snapshot_game_bets(conn, today)   if args.refresh else {}
 
     # Pre-fetch game data (lineups, SPs, umpires) — one MLB Stats API call
     print("\n[1/4] Pre-fetching game data from MLB Stats API...")
@@ -557,15 +590,24 @@ def main() -> None:
     games_eval, _ = _analyze_games(conn, pulled_at, today, game_data=game_data)
     print(f"  Game lines evaluated: {games_eval}")
 
-    # Detect and alert on Watchlist promotions (refresh mode only)
+    # Detect promotions and degradations (refresh mode only)
     if args.refresh:
+        from send_picks_email import send_promotion_alert, send_degradation_alert
+
         promoted = _detect_promotions(conn, today, prev_watch)
         if promoted:
             print(f"\n  *** {len(promoted)} Watchlist pick(s) promoted — sending alert ***")
-            from send_picks_email import send_promotion_alert
             send_promotion_alert(promoted, today)
         else:
             print("\n  No Watchlist promotions this refresh")
+
+        degraded = _detect_game_degradations(conn, today, prev_game_bets)
+        if degraded:
+            print(f"  *** {len(degraded)} game bet(s) degraded — sending alert ***")
+            send_degradation_alert(degraded, today)
+        else:
+            print("  No game bet degradations this refresh")
+
         conn.close()
         return
 

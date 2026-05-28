@@ -99,6 +99,61 @@ def _result_color(result: str) -> tuple[str, str]:
     return "#555", result or "PENDING"
 
 
+def send_degradation_alert(degraded: list[dict], today: str) -> None:
+    """Alert when a bet game pick's edge drops below its tier minimum — consider cashing out."""
+    import html as _html
+    email_from = os.getenv("EMAIL_FROM", "")
+    email_pass = os.getenv("EMAIL_PASSWORD", "")
+    email_to   = os.getenv("EMAIL_TO", email_from)
+    if not email_from or not email_pass:
+        print("  EMAIL_FROM / EMAIL_PASSWORD not set — skipping degradation alert")
+        return
+
+    today_label = date.fromisoformat(today).strftime("%B %d")
+    n = len(degraded)
+    subject = f"MLB Line Alert — {n} bet{'s' if n > 1 else ''} degraded ({today_label})"
+
+    plain_lines = [f"LINE DEGRADATION — {today_label}", "Consider cashing out on Bovada", ""]
+    for p in degraded:
+        plain_lines.append(
+            f"{p.get('away_team','?')} @ {p.get('home_team','?')} | "
+            f"{p['selection']} {p['point']} | {_fmt_odds(p['bovada_price'])} | "
+            f"edge now {p['edge']*100:+.1f}%"
+        )
+
+    cards = ""
+    for p in degraded:
+        edge_pct = p["edge"] * 100
+        col = "#e74c3c" if edge_pct < 0 else "#f59e0b"
+        cards += (
+            f'<div style="border-left:3px solid {col};padding:8px 14px;margin:8px 0;background:#161b22">'
+            f'<span style="color:#e6edf3;font-weight:700">'
+            f'{_html.escape(str(p.get("away_team","?")))} @ {_html.escape(str(p.get("home_team","?")))}</span>'
+            f'&nbsp;&nbsp;{_html.escape(str(p["selection"]))} {p["point"]}'
+            f'&nbsp;&nbsp;<span style="color:#8b949e">{_fmt_odds(p["bovada_price"])}</span>'
+            f'&nbsp;&nbsp;<span style="color:{col};font-weight:700">edge {edge_pct:+.1f}%</span>'
+            f'</div>'
+        )
+
+    html_body = f"""<html><body style="font-family:monospace;background:#0d1117;color:#e6edf3;padding:20px">
+<h2 style="color:#e74c3c">Line Degradation Alert &mdash; {today_label}</h2>
+<p style="color:#8b949e">{n} bet{'s' if n > 1 else ''} no longer meeting edge threshold &mdash; consider cashing out on Bovada</p>
+{cards}
+</body></html>"""
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"]    = email_from
+    msg["To"]      = email_to
+    msg.attach(MIMEText("\n".join(plain_lines), "plain"))
+    msg.attach(MIMEText(html_body, "html"))
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(email_from, email_pass)
+        server.sendmail(email_from, email_to, msg.as_string())
+    print(f"  Degradation alert sent to {email_to} ({n} picks)")
+
+
 def _profit(price: int) -> float:
     return -100 / price if price < 0 else price / 100
 
