@@ -638,17 +638,21 @@ def main() -> None:
 
     # Write status file for remote health checks
     try:
-        bets_count = conn.execute("""
+        player_bets = conn.execute("""
             SELECT COUNT(*) AS cnt FROM daily_picks
             WHERE pick_date = ?
               AND recommendation IN ('A_BET','B_BET','RECOMMENDED','LEAN')
-              AND sim_prob IS NOT NULL AND sim_prob >= bovada_break_even_prob
+        """, (today,)).fetchone()["cnt"]
+        game_bets = conn.execute("""
+            SELECT COUNT(*) AS cnt FROM daily_game_picks
+            WHERE pick_date = ?
+              AND recommendation IN ('A_BET','B_BET','RECOMMENDED','LEAN')
         """, (today,)).fetchone()["cnt"]
         status = {
             "date": today,
             "ran_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "picks_evaluated": evaluated,
-            "bets_found": bets_count,
+            "bets_found": player_bets + game_bets,
             "email_sent": False,
             "pipeline_success": True,
         }

@@ -3,6 +3,7 @@ Send today's MLB V2 picks via email — full summary, no dashboard needed.
 Includes: today's picks, yesterday's results, running record + ROI.
 """
 import os
+import json
 import smtplib
 import sys
 from datetime import date, datetime, timezone, timedelta
@@ -165,6 +166,7 @@ def get_today_game_picks(conn, today: str) -> list[dict]:
         FROM daily_game_picks
         WHERE pick_date = ?
           AND recommendation IN ('A_BET','B_BET','RECOMMENDED','LEAN')
+          AND emailed = 0
         ORDER BY recommendation DESC, signal_score DESC
     """, (today,)).fetchall()]
 
@@ -190,6 +192,7 @@ def get_today_picks(conn, today: str) -> list[dict]:
           AND recommendation IN ('A_BET','B_BET','RECOMMENDED','LEAN')
           AND sim_prob IS NOT NULL
           AND sim_prob >= bovada_break_even_prob
+          AND emailed = 0
         ORDER BY recommendation DESC, sim_prob DESC, edge DESC
     """, (today,)).fetchall()]
     if not rows:
@@ -201,6 +204,7 @@ def get_today_picks(conn, today: str) -> list[dict]:
             FROM daily_picks
             WHERE pick_date = ?
               AND recommendation IN ('A_BET','B_BET','RECOMMENDED','LEAN')
+              AND emailed = 0
             ORDER BY recommendation DESC, edge DESC
         """, (today,)).fetchall()]
         if rows:
@@ -582,8 +586,8 @@ def send(today_picks, yesterday_picks, record, today, yesterday,
             status = _json.loads(status_path.read_text())
             status["email_sent"] = True
             status_path.write_text(_json.dumps(status, indent=2))
-    except Exception:
-        pass
+    except Exception as _e:
+        print(f"  WARNING: could not update status.json ({_e})")
 
 
 def _stamp_emailed(conn, today: str, today_picks: list[dict],
@@ -605,6 +609,18 @@ def _stamp_emailed(conn, today: str, today_picks: list[dict],
     conn.commit()
 
 
+def _email_already_sent(today: str) -> bool:
+    status_path = ROOT / "data" / "status.json"
+    if not status_path.exists():
+        return False
+    try:
+        status = json.loads(status_path.read_text())
+        return status.get("date") == today and status.get("email_sent") is True
+    except Exception as exc:
+        print(f"  WARNING: could not read status.json ({exc})")
+        return False
+
+
 def main() -> None:
     now       = __import__('config').pt_now()
     today     = now.strftime("%Y-%m-%d")
@@ -620,6 +636,10 @@ def main() -> None:
     total_today = len(today_picks) + len(today_game_picks)
     print(f"\n[Email] {total_today} picks today ({len(today_game_picks)} game totals), "
           f"{len(yesterday_picks) + len(yesterday_game_results)} graded yesterday")
+    if total_today == 0 and _email_already_sent(today):
+        print("  No unemailed picks and today's email was already sent — skipping")
+        conn.close()
+        return
     try:
         send(today_picks, yesterday_picks, record, today, yesterday,
              today_game_picks, yesterday_game_results)
