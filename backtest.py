@@ -21,6 +21,7 @@ sys.path.insert(0, str(ROOT))
 from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 
+import re
 from db import init_db, insert_snapshots
 
 BACKTEST_DB = ROOT / "data" / "backtest.db"
@@ -148,14 +149,54 @@ def _store_game_picks(
     bt_conn.commit()
 
 
+# ── SQLite adapter (db.py uses psycopg2 %(key)s/%s params) ───────────────────
+
+class _SqliteAdapter:
+    """Wraps sqlite3.Connection, translating psycopg2-style params to SQLite-style."""
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._c = conn
+        self.row_factory = conn.row_factory
+
+    @staticmethod
+    def _xlate(sql: str, params) -> str:
+        first = params if isinstance(params, dict) else (params[0] if params else None)
+        if isinstance(first, dict):
+            return re.sub(r'%\((\w+)\)s', r':\1', sql)
+        return sql.replace('%s', '?')
+
+    def execute(self, sql: str, params=()):
+        return self._c.execute(self._xlate(sql, params), params)
+
+    def executemany(self, sql: str, params=()):
+        rows = list(params)
+        if not rows:
+            return
+        self._c.executemany(self._xlate(sql, rows), rows)
+
+    def commit(self):
+        self._c.commit()
+
+    def close(self):
+        self._c.close()
+
+    def __getattr__(self, name):
+        return getattr(self._c, name)
+
+
+def _mem_db() -> "_SqliteAdapter":
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    return _SqliteAdapter(conn)
+
+
 # ── Per-day analysis ──────────────────────────────────────────────────────────
 
 def _analyze_day(snapshot_rows: list, pulled_at: str, date_str: str) -> list:
     """Run edge analysis on snapshot_rows using in-memory SQLite. Returns list of pick dicts."""
     from run_daily import _analyze
 
-    mem = sqlite3.connect(":memory:")
-    mem.row_factory = sqlite3.Row
+    mem = _mem_db()
     init_db(mem)
     insert_snapshots(mem, snapshot_rows)
     _analyze(mem, pulled_at, date_str, game_data=None)
@@ -170,8 +211,7 @@ def _analyze_game_day(snapshot_rows: list, pulled_at: str, date_str: str) -> lis
     """Run game analysis on snapshot_rows using in-memory SQLite. Returns game pick dicts."""
     from run_daily import _analyze_games
 
-    mem = sqlite3.connect(":memory:")
-    mem.row_factory = sqlite3.Row
+    mem = _mem_db()
     init_db(mem)
     insert_snapshots(mem, snapshot_rows)
     _analyze_games(mem, pulled_at, date_str, game_data=None)
@@ -311,6 +351,77 @@ def run_backtest(
         else:
             print(f"  {date_str}: skipping (today or future)")
         d += timedelta(days=1)
+
+
+def run_backtest_from_db(
+    live_db_path: str,
+    bt_conn: sqlite3.Connection,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> None:
+    """
+    Replay the pipeline against snapshots already stored in mlb_v2.db.
+    No API calls. Uses the latest pull per calendar day.
+    """
+    from config import pt_date
+    today = pt_date()
+
+    live_conn = sqlite3.connect(live_db_path)
+    live_conn.row_factory = sqlite3.Row
+
+    date_rows = live_conn.execute("""
+        SELECT DATE(pulled_at) AS day, MAX(pulled_at) AS latest_pull
+        FROM props_snapshots
+        GROUP BY DATE(pulled_at)
+        ORDER BY day
+    """).fetchall()
+
+    for row in date_rows:
+        date_str  = row["day"]
+        pulled_at = row["latest_pull"]
+
+        if date_str >= today:
+            print(f"  {date_str}: skipping (today or future)")
+            continue
+        if start_date and date_str < start_date:
+            continue
+        if end_date and date_str > end_date:
+            continue
+        if bt_conn.execute(
+            "SELECT 1 FROM backtest_days WHERE pick_date=?", (date_str,)
+        ).fetchone():
+            print(f"  {date_str}: already processed, skipping")
+            continue
+
+        snapshot_rows = [dict(r) for r in live_conn.execute(
+            "SELECT * FROM props_snapshots WHERE DATE(pulled_at) = ?", (date_str,)
+        ).fetchall()]
+
+        if not snapshot_rows:
+            continue
+
+        print(f"  [{date_str}] {len(snapshot_rows)} snapshot rows — analyzing...")
+        picks      = _analyze_day(snapshot_rows, pulled_at, date_str)
+        game_picks = _analyze_game_day(snapshot_rows, pulled_at, date_str)
+        print(f"  {date_str}: {len(picks)} prop picks, {len(game_picks)} game picks — grading...")
+
+        picks      = _grade_picks(picks, date_str)
+        game_picks = _grade_game_picks(game_picks, date_str)
+        graded      = sum(1 for p in picks      if p.get("result", "PENDING") != "PENDING")
+        game_graded = sum(1 for p in game_picks if p.get("result", "PENDING") != "PENDING")
+        print(f"  {date_str}: {graded}/{len(picks)} props graded, {game_graded}/{len(game_picks)} game graded")
+
+        _store_picks(bt_conn, date_str, picks)
+        _store_game_picks(bt_conn, game_picks)
+
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        bt_conn.execute(
+            "INSERT OR REPLACE INTO backtest_days VALUES (?, ?, ?)",
+            (date_str, now, len(picks)),
+        )
+        bt_conn.commit()
+
+    live_conn.close()
 
 
 # ── Report ────────────────────────────────────────────────────────────────────
@@ -493,6 +604,8 @@ def main() -> None:
                         help="End date YYYY-MM-DD (default: yesterday)")
     parser.add_argument("--report-only", action="store_true",
                         help="Print report from existing data without fetching")
+    parser.add_argument("--from-db", action="store_true",
+                        help="Use snapshots stored in mlb_v2.db — no API calls")
     parser.add_argument("--reset", action="store_true",
                         help="Delete backtest DB before running (fresh start with all markets)")
     args = parser.parse_args()
@@ -517,13 +630,18 @@ def main() -> None:
         ).strftime("%Y-%m-%d")
 
     if not args.report_only:
-        api_key = os.environ.get("ODDS_API_KEY")
-        if not api_key:
-            print("ERROR: ODDS_API_KEY not set in .env")
-            sys.exit(1)
-        print(f"\nBacktesting {start_date} to {end_date}...")
-        print(f"NOTE: Each day costs ~15-20 API requests. A 14-day run uses ~220 requests.\n")
-        run_backtest(api_key, start_date, end_date, bt_conn)
+        if args.from_db:
+            from config import DB_PATH
+            print(f"\nBacktesting from stored snapshots ({DB_PATH})...")
+            run_backtest_from_db(str(DB_PATH), bt_conn, start_date, end_date)
+        else:
+            api_key = os.environ.get("ODDS_API_KEY")
+            if not api_key:
+                print("ERROR: ODDS_API_KEY not set in .env")
+                sys.exit(1)
+            print(f"\nBacktesting {start_date} to {end_date}...")
+            print(f"NOTE: Each day costs ~15-20 API requests. A 14-day run uses ~220 requests.\n")
+            run_backtest(api_key, start_date, end_date, bt_conn)
 
     print_report(bt_conn, start_date, end_date)
     bt_conn.close()
