@@ -102,51 +102,6 @@ _SIG_GROUPS: dict[str, tuple[str, str]] = {
 }
 
 
-def _score_color(score: int | None) -> str:
-    if score is None:
-        return "#475569"
-    if score >= 65:
-        return "#818cf8"
-    if score >= 50:
-        return "#fbbf24"
-    if score >= 45:
-        return "#38bdf8"
-    return "#64748b"
-
-
-def _meter_svg(center_text: str, fill_pct: float, color: str, sub_label: str = "") -> str:
-    """SVG circular meter. fill_pct 0-100."""
-    size, r = 68, 26
-    cx = cy = size / 2
-    circ = 2 * 3.14159265 * r
-    dash = max(0.0, min(fill_pct / 100.0, 1.0)) * circ
-    gap  = circ - dash
-    fs, sf = 14.0, 9.5
-    if sub_label:
-        cy_main = cx - sf * 0.75
-        cy_sub  = cx + fs * 0.65
-        sub_el = (
-            f'<text x="{cx:.1f}" y="{cy_sub:.1f}" text-anchor="middle" '
-            f'dominant-baseline="middle" font-size="{sf:.1f}" fill="#475569" '
-            f'font-family="Inter,-apple-system,sans-serif">{sub_label}</text>'
-        )
-    else:
-        cy_main = cx
-        sub_el  = ""
-    return (
-        f'<svg width="{size}" height="{size}" viewBox="0 0 {size} {size}" '
-        f'xmlns="http://www.w3.org/2000/svg">'
-        f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r}" fill="none" stroke="#252a38" stroke-width="4.5"/>'
-        f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r}" fill="none" stroke="{color}" stroke-width="4.5"'
-        f' stroke-dasharray="{dash:.2f} {gap:.2f}" stroke-linecap="round"'
-        f' transform="rotate(-90 {cx:.1f} {cy:.1f})"/>'
-        f'<text x="{cx:.1f}" y="{cy_main:.1f}" text-anchor="middle" dominant-baseline="middle"'
-        f' font-size="{fs:.1f}" font-weight="700" fill="{color}"'
-        f' font-family="Inter,-apple-system,sans-serif">{center_text}</text>'
-        f'{sub_el}</svg>'
-    )
-
-
 def _breakdown_chips_html(breakdown: list) -> str:
     """Top signal-group chips from a breakdown list."""
     if not breakdown:
@@ -417,7 +372,7 @@ def _get_sim(p: dict, season: int) -> dict:
 
 
 def _daily_summary_html(prop_picks: list, game_picks: list) -> str:
-    """Compact grouped summary for the top of Today's Picks."""
+    """Compact grouped summary for the top of the Props tab."""
     all_picks = prop_picks + game_picks
     if not all_picks:
         return ""
@@ -1088,16 +1043,15 @@ def _game_selection_label(p: dict) -> str:
     return _html.escape(f"{selection} {point_s}")
 
 
+def _time_sort_key(p: dict) -> tuple:
+    commence = str(p.get("commence_time") or "")
+    return (commence, str(p.get("player_name") or ""), str(p.get("market_key") or ""))
+
+
 def _prop_card_html(p: dict) -> str:
     t     = _tier(p["recommendation"])
     lbl   = _rec_label(p["recommendation"])
-    score = p.get("signal_score")
     edge  = p.get("edge") or 0
-
-    meter_color = _score_color(score)
-    meter_fill  = min(float(score), 100.0) if score is not None else 0.0
-    meter_text  = str(int(score)) if score is not None else "—"
-    meter_html  = _meter_svg(meter_text, meter_fill, meter_color, "SETUP")
 
     try:
         breakdown = json.loads(p.get("signal_breakdown") or "[]")
@@ -1122,8 +1076,7 @@ def _prop_card_html(p: dict) -> str:
 
     return f"""
 <div class="pick {t}" style="{tracked_style}">
-  <div style="display:flex;gap:12px;align-items:flex-start">
-    <div style="flex:1;min-width:0">
+  <div>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
         <div>
           <div style="font-size:16px;font-weight:600;color:#f1f5f9">{p_name}</div>
@@ -1154,8 +1107,6 @@ def _prop_card_html(p: dict) -> str:
       </div>
       {chips_html}
       {p.get("_lights_html", "")}
-    </div>
-    <div style="flex:0 0 auto;padding-top:2px">{meter_html}</div>
   </div>
 </div>"""
 
@@ -1165,27 +1116,16 @@ def _game_card_html(p: dict) -> str:
     lbl       = _rec_label(p["recommendation"])
     edge_only = _is_edge_only_game_market(p)
     edge      = p.get("edge") or 0
-    score     = p.get("signal_score")
 
     if edge_only:
-        meter_color = {"elite": "#818cf8", "good": "#fbbf24", "watch": "#38bdf8"}.get(t, "#64748b")
-        meter_fill  = min(abs(edge) / 0.04, 1.0) * 100
-        edge_pct    = abs(edge) * 100
-        meter_text  = f"{edge_pct:.1f}%"
-        meter_sub   = "EDGE"
         chips_html  = ""
     else:
-        meter_color = _score_color(score)
-        meter_fill  = min(float(score), 100.0) if score is not None else 0.0
-        meter_text  = str(int(score)) if score is not None else "—"
-        meter_sub   = "SETUP"
         try:
             breakdown = json.loads(p.get("signal_breakdown") or "[]")
         except Exception:
             breakdown = []
         chips_html = _breakdown_chips_html(breakdown)
 
-    meter_html = _meter_svg(meter_text, meter_fill, meter_color, meter_sub)
     edge_col   = {"elite": "#818cf8", "pass": "#64748b"}.get(t, "#fbbf24")
 
     away      = _html.escape(str(p.get("away_team") or "?"))
@@ -1209,8 +1149,7 @@ def _game_card_html(p: dict) -> str:
 
     return f"""
 <div class="pick {t} game" style="{tracked_style}">
-  <div style="display:flex;gap:12px;align-items:flex-start">
-    <div style="flex:1;min-width:0">
+  <div>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
         <div>
           <div style="font-size:16px;font-weight:600;color:#f1f5f9">{away} @ {home}</div>
@@ -1237,8 +1176,6 @@ def _game_card_html(p: dict) -> str:
       </div>
       {chips_html}{actual_html}
       {p.get("_lights_html", "")}
-    </div>
-    <div style="flex:0 0 auto;padding-top:2px">{meter_html}</div>
   </div>
 </div>"""
 
@@ -1404,7 +1341,7 @@ def _render_game_picks(conn, picks: list, show_all: bool, min_score: int,
             if k not in _seen_game:
                 _seen_game[k] = True
                 _deduped_game.append(p)
-    visible = _deduped_game
+    visible = sorted(_deduped_game, key=_time_sort_key)
 
     if not visible:
         st.info("No game picks match current filters.")
@@ -1536,57 +1473,26 @@ def _render_today(conn, today: str) -> None:
         st.info("No picks match current filters.")
         return
 
-    # Group A/B bets first, then watchlist candidates.
-    elite_picks = [p for p in visible if normalize_recommendation(p["recommendation"]) == "A_BET"]
-    good_picks  = [p for p in visible if normalize_recommendation(p["recommendation"]) == "B_BET"]
-    watch_picks = [p for p in visible if normalize_recommendation(p["recommendation"]) == "WATCH"]
-
-    if elite_picks:
-        st.markdown('<div class="section-label">Elite</div>', unsafe_allow_html=True)
-        for p in elite_picks:
-            st.markdown(_prop_card_html(p), unsafe_allow_html=True)
-            tier_lbl = _rec_label(p["recommendation"])
-            breakdown_raw = p.get("signal_breakdown") or "[]"
-            try:
-                breakdown = json.loads(breakdown_raw)
-            except Exception:
-                breakdown = []
-            with st.expander(f"Why {tier_lbl}?"):
-                _why_content(p, breakdown, p.get("sim_prob"), p.get("bovada_break_even_prob"))
+    visible = sorted(visible, key=_time_sort_key)
+    st.markdown('<div class="section-label">Props by Start Time</div>', unsafe_allow_html=True)
+    for p in visible:
+        st.markdown(_prop_card_html(p), unsafe_allow_html=True)
+        tier_lbl = _rec_label(p["recommendation"])
+        breakdown_raw = p.get("signal_breakdown") or "[]"
+        try:
+            breakdown = json.loads(breakdown_raw)
+        except Exception:
+            breakdown = []
+        with st.expander(f"Why {tier_lbl}?"):
+            _why_content(p, breakdown, p.get("sim_prob"), p.get("bovada_break_even_prob"))
+        if is_bet_recommendation(p["recommendation"]):
             _track_strip(conn, p)
-
-    if good_picks:
-        st.markdown('<div class="section-label">Good</div>', unsafe_allow_html=True)
-        for p in good_picks:
-            st.markdown(_prop_card_html(p), unsafe_allow_html=True)
-            tier_lbl = _rec_label(p["recommendation"])
-            breakdown_raw = p.get("signal_breakdown") or "[]"
-            try:
-                breakdown = json.loads(breakdown_raw)
-            except Exception:
-                breakdown = []
-            with st.expander(f"Why {tier_lbl}?"):
-                _why_content(p, breakdown, p.get("sim_prob"), p.get("bovada_break_even_prob"))
-            _track_strip(conn, p)
-
-    if watch_picks:
-        st.markdown('<div class="section-label">Watchlist</div>', unsafe_allow_html=True)
-        for p in watch_picks:
-            st.markdown(_prop_card_html(p), unsafe_allow_html=True)
-            tier_lbl = _rec_label(p["recommendation"])
-            breakdown_raw = p.get("signal_breakdown") or "[]"
-            try:
-                breakdown = json.loads(breakdown_raw)
-            except Exception:
-                breakdown = []
-            with st.expander(f"Why {tier_lbl}?"):
-                _why_content(p, breakdown, p.get("sim_prob"), p.get("bovada_break_even_prob"))
 
 
 def _render_active_bets(conn) -> None:
     bets = get_active_bets(conn)
     if not bets:
-        st.info("No active pending bets. Place bets from Today's Picks.")
+        st.info("No active pending bets. Place bets from Props or Game Markets.")
         return
 
     st.subheader(f"Active Bets  ({len(bets)} pending)")
@@ -1716,7 +1622,7 @@ def _render_learning(conn) -> None:
     """).fetchone()
 
     if not summary or summary["total"] == 0:
-        st.info("No bet history yet. Mark your first bets in Today's Picks — results auto-grade each morning.")
+        st.info("No bet history yet. Mark your first bets in Props or Game Markets — results auto-grade each morning.")
         return
 
     graded  = (summary["wins"] or 0) + (summary["losses"] or 0)
@@ -1882,7 +1788,7 @@ def main() -> None:
 </div>
 """, unsafe_allow_html=True)
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Today's Picks", "Game Markets", "My Bets", "Pick History", "Results & Learning"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Props", "Game Markets", "My Bets", "Pick History", "Results & Learning"])
 
     with tab1:
         from datetime import date as _date
