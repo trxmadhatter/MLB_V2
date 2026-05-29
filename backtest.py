@@ -511,6 +511,7 @@ def print_report(
     bt_conn: sqlite3.Connection,
     start_date: str,
     end_date: str,
+    save_cal: bool = False,
 ) -> None:
     days = bt_conn.execute("SELECT COUNT(*) FROM backtest_days").fetchone()[0]
     total_picks = bt_conn.execute(
@@ -588,9 +589,12 @@ def print_report(
                 f"{r['breakeven']:.1%}  {diff:>7}  {r['net_units']:>+7.2f}"
             )
 
-        from market_learn import save_calibration
-        save_calibration(cal)
-        print(f"\n  Calibration saved to data/market_calibration.json")
+        if save_cal:
+            from market_learn import save_calibration
+            save_calibration(cal)
+            print(f"\n  Calibration saved to data/market_calibration.json")
+        else:
+            print(f"\n  (pass --save-calibration to write these results to disk)")
 
     print()
 
@@ -622,6 +626,8 @@ def main() -> None:
                         help="Use snapshots stored in mlb_v2.db — no API calls")
     parser.add_argument("--reset", action="store_true",
                         help="Delete backtest DB before running (fresh start with all markets)")
+    parser.add_argument("--save-calibration", action="store_true",
+                        help="Write calibration results to data/market_calibration.json")
     args = parser.parse_args()
 
     if args.reset and not args.report_only:
@@ -657,7 +663,7 @@ def main() -> None:
             print(f"NOTE: Each day costs ~15-20 API requests. A 14-day run uses ~220 requests.\n")
             run_backtest(api_key, start_date, end_date, bt_conn)
 
-    print_report(bt_conn, start_date, end_date)
+    print_report(bt_conn, start_date, end_date, save_cal=args.save_calibration)
     bt_conn.close()
 
 
