@@ -1,6 +1,7 @@
 .env
 data/mlb_v2.db
 data/picks.db
+data/backtest.db
 data/picks/
 backtest.db
 __pycache__/
