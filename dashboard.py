@@ -63,6 +63,116 @@ TEAM_NAMES = {
     "SDP": "San Diego Padres",    "SFG": "San Francisco Giants",
 }
 
+_SIG_GROUPS: dict[str, tuple[str, str]] = {
+    "recent_tb":         ("Form",    "#f59e0b"),
+    "recent_hits":       ("Form",    "#f59e0b"),
+    "recent_h":          ("Form",    "#f59e0b"),
+    "recent_hr":         ("Form",    "#f59e0b"),
+    "recent_rbi":        ("Form",    "#f59e0b"),
+    "recent_k":          ("Form",    "#f59e0b"),
+    "recent_k_rate":     ("Form",    "#f59e0b"),
+    "recent_ip":         ("Form",    "#f59e0b"),
+    "sp_quality":        ("Matchup", "#34d399"),
+    "home_sp_quality":   ("Matchup", "#34d399"),
+    "away_sp_quality":   ("Matchup", "#34d399"),
+    "opp_team_k_pct":    ("Matchup", "#34d399"),
+    "opp_lineup_ops":    ("Matchup", "#34d399"),
+    "opp_team_avg":      ("Matchup", "#34d399"),
+    "home_team_offense": ("Offense", "#fb923c"),
+    "away_team_offense": ("Offense", "#fb923c"),
+    "ump_k_tendency":    ("Umpire",  "#a78bfa"),
+    "umpire_run_factor": ("Umpire",  "#a78bfa"),
+    "park_tb_factor":    ("Park",    "#94a3b8"),
+    "park_hits_factor":  ("Park",    "#94a3b8"),
+    "park_run_factor":   ("Park",    "#94a3b8"),
+    "park_k_factor":     ("Park",    "#94a3b8"),
+    "weather":           ("Weather", "#60a5fa"),
+    "season_avg":        ("Stats",   "#818cf8"),
+    "season_slg":        ("Stats",   "#818cf8"),
+    "season_k_pct":      ("Stats",   "#818cf8"),
+    "season_k9":         ("Stats",   "#818cf8"),
+    "season_whip":       ("Stats",   "#818cf8"),
+    "xwoba":             ("Stats",   "#818cf8"),
+    "barrel_pct":        ("Stats",   "#818cf8"),
+    "hard_hit_pct":      ("Stats",   "#818cf8"),
+    "whiff_pct":         ("Stats",   "#818cf8"),
+    "stuff_plus":        ("Stats",   "#818cf8"),
+    "swstr_pct":         ("Stats",   "#818cf8"),
+    "xfip":              ("Stats",   "#818cf8"),
+}
+
+
+def _score_color(score: int | None) -> str:
+    if score is None:
+        return "#475569"
+    if score >= 65:
+        return "#818cf8"
+    if score >= 50:
+        return "#fbbf24"
+    if score >= 45:
+        return "#38bdf8"
+    return "#64748b"
+
+
+def _meter_svg(center_text: str, fill_pct: float, color: str, sub_label: str = "") -> str:
+    """SVG circular meter. fill_pct 0-100."""
+    size, r = 68, 26
+    cx = cy = size / 2
+    circ = 2 * 3.14159265 * r
+    dash = max(0.0, min(fill_pct / 100.0, 1.0)) * circ
+    gap  = circ - dash
+    fs, sf = 14.0, 9.5
+    if sub_label:
+        cy_main = cx - sf * 0.75
+        cy_sub  = cx + fs * 0.65
+        sub_el = (
+            f'<text x="{cx:.1f}" y="{cy_sub:.1f}" text-anchor="middle" '
+            f'dominant-baseline="middle" font-size="{sf:.1f}" fill="#475569" '
+            f'font-family="Inter,-apple-system,sans-serif">{sub_label}</text>'
+        )
+    else:
+        cy_main = cx
+        sub_el  = ""
+    return (
+        f'<svg width="{size}" height="{size}" viewBox="0 0 {size} {size}" '
+        f'xmlns="http://www.w3.org/2000/svg">'
+        f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r}" fill="none" stroke="#252a38" stroke-width="4.5"/>'
+        f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r}" fill="none" stroke="{color}" stroke-width="4.5"'
+        f' stroke-dasharray="{dash:.2f} {gap:.2f}" stroke-linecap="round"'
+        f' transform="rotate(-90 {cx:.1f} {cy:.1f})"/>'
+        f'<text x="{cx:.1f}" y="{cy_main:.1f}" text-anchor="middle" dominant-baseline="middle"'
+        f' font-size="{fs:.1f}" font-weight="700" fill="{color}"'
+        f' font-family="Inter,-apple-system,sans-serif">{center_text}</text>'
+        f'{sub_el}</svg>'
+    )
+
+
+def _breakdown_chips_html(breakdown: list) -> str:
+    """Top signal-group chips from a breakdown list."""
+    if not breakdown:
+        return ""
+    groups: dict[str, dict] = {}
+    for sig in breakdown:
+        signal = sig.get("signal", "")
+        pts    = sig.get("pts", 0)
+        if pts <= 0:
+            continue
+        cat, color = _SIG_GROUPS.get(signal, ("Other", "#64748b"))
+        if cat not in groups:
+            groups[cat] = {"pts": 0, "color": color}
+        groups[cat]["pts"] += pts
+    top = sorted(groups.items(), key=lambda x: -x[1]["pts"])[:3]
+    if not top:
+        return ""
+    chips = "".join(
+        f'<span style="background:#1a1d27;color:{info["color"]};border:1px solid #252a38;'
+        f'border-radius:10px;font-size:10px;font-weight:600;padding:2px 7px;letter-spacing:0.3px">'
+        f'{cat}</span>'
+        for cat, info in top
+    )
+    return f'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">{chips}</div>'
+
+
 CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -651,19 +761,23 @@ def _game_selection_label(p: dict) -> str:
 
 
 def _prop_card_html(p: dict) -> str:
-    t        = _tier(p["recommendation"])
-    lbl      = _rec_label(p["recommendation"])
-    score    = p["signal_score"] or 0
-    bar_pct  = min(score, 100)
-    if t == "elite":
-        bar_grad = "linear-gradient(90deg,#4f46e5,#818cf8)"
-        edge_col = "#818cf8"
-    elif t == "pass":
-        bar_grad = "linear-gradient(90deg,#1e2330,#334155)"
-        edge_col = "#64748b"
-    else:
-        bar_grad = "linear-gradient(90deg,#b45309,#fbbf24)"
-        edge_col = "#fbbf24"
+    t     = _tier(p["recommendation"])
+    lbl   = _rec_label(p["recommendation"])
+    score = p.get("signal_score")
+    edge  = p.get("edge") or 0
+
+    meter_color = _score_color(score)
+    meter_fill  = min(float(score), 100.0) if score is not None else 0.0
+    meter_text  = str(int(score)) if score is not None else "—"
+    meter_html  = _meter_svg(meter_text, meter_fill, meter_color)
+
+    try:
+        breakdown = json.loads(p.get("signal_breakdown") or "[]")
+    except Exception:
+        breakdown = []
+    chips_html = _breakdown_chips_html(breakdown)
+
+    edge_col = {"elite": "#818cf8", "pass": "#64748b"}.get(t, "#fbbf24")
 
     p_name    = _html.escape(str(p["player_name"]))
     team      = _html.escape(_full_team(p.get("team_abbr") or ""))
@@ -671,75 +785,86 @@ def _prop_card_html(p: dict) -> str:
     sel       = _html.escape(str(p["selection"]))
     point_s   = f"{p['point']:g}" if p["point"] is not None else "?"
     price_s   = f"{p['bovada_price']:+d}" if p["bovada_price"] is not None else "—"
-    edge_s    = f"{(p['edge'] or 0):.1%}"
-    ev_s      = f"{(p['ev'] or 0):+.1%}"
-    books_s   = str(p["consensus_book_count"] or "?")
+    edge_s    = f"{edge:.1%}"
+    ev_s      = f"{(p.get('ev') or 0):+.1%}"
+    books_s   = str(p.get("consensus_book_count") or "?")
     res_html  = _result_html(p)
     bet_badge = _bet_badge_html(p)
     tracked_style = "border-left:3px solid #34d399;background:#0d1812;" if p.get("bet_placed") == 1 else ""
 
     return f"""
 <div class="pick {t}" style="{tracked_style}">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
-    <div>
-      <div style="font-size:16px;font-weight:600;color:#f1f5f9">{p_name}</div>
-      <div style="font-size:12px;color:#64748b;margin-top:2px">{team}</div>
+  <div style="display:flex;gap:12px;align-items:flex-start">
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <div>
+          <div style="font-size:16px;font-weight:600;color:#f1f5f9">{p_name}</div>
+          <div style="font-size:12px;color:#64748b;margin-top:2px">{team}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <span class="badge {t}">{lbl}</span>{bet_badge}{res_html}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+        <span style="background:#252a38;color:#94a3b8;font-size:12px;border-radius:4px;padding:3px 9px">{mkt}</span>
+        <span style="font-size:15px;font-weight:600;color:#e2e8f0">{sel} {point_s}</span>
+        <span style="background:#1e2330;color:#94a3b8;font-size:13px;border-radius:4px;padding:3px 9px;border:1px solid #2a3044">{price_s}</span>
+      </div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.8px">Edge</div>
+          <div style="font-size:13px;color:{edge_col};font-weight:500">{edge_s}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.8px">EV</div>
+          <div style="font-size:13px;color:#cbd5e1;font-weight:500">{ev_s}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.8px">Books</div>
+          <div style="font-size:13px;color:#cbd5e1;font-weight:500">{books_s}</div>
+        </div>
+      </div>
+      {chips_html}
     </div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
-      <span class="badge {t}">{lbl}</span>{bet_badge}{res_html}
-    </div>
-  </div>
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
-    <span style="background:#252a38;color:#94a3b8;font-size:12px;border-radius:4px;padding:3px 9px">{mkt}</span>
-    <span style="font-size:15px;font-weight:600;color:#e2e8f0">{sel} {point_s}</span>
-    <span style="background:#1e2330;color:#94a3b8;font-size:13px;border-radius:4px;padding:3px 9px;border:1px solid #2a3044">{price_s}</span>
-  </div>
-  <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-    <div style="flex:1;background:#252a38;border-radius:99px;height:4px">
-      <div style="background:{bar_grad};width:{bar_pct}%;height:4px;border-radius:99px"></div>
-    </div>
-    <span style="font-size:12px;color:#64748b;min-width:52px;white-space:nowrap">Score {score}</span>
-  </div>
-  <div style="display:flex;gap:20px;flex-wrap:wrap">
-    <div>
-      <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.8px">Edge</div>
-      <div style="font-size:13px;color:{edge_col};font-weight:500">{edge_s}</div>
-    </div>
-    <div>
-      <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.8px">EV</div>
-      <div style="font-size:13px;color:#cbd5e1;font-weight:500">{ev_s}</div>
-    </div>
-    <div>
-      <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.8px">Books</div>
-      <div style="font-size:13px;color:#cbd5e1;font-weight:500">{books_s}</div>
-    </div>
+    <div style="flex:0 0 auto;padding-top:2px">{meter_html}</div>
   </div>
 </div>"""
 
 
 def _game_card_html(p: dict) -> str:
-    t        = _tier(p["recommendation"])
-    lbl      = _rec_label(p["recommendation"])
+    t         = _tier(p["recommendation"])
+    lbl       = _rec_label(p["recommendation"])
     edge_only = _is_edge_only_game_market(p)
-    score    = p["signal_score"] or 0
-    bar_pct  = min(score, 100) if not edge_only else min(max((p.get("edge") or 0) / 0.04 * 100, 0), 100)
-    score_html = "Edge only" if edge_only else f"Score {score}"
-    if t == "elite":
-        bar_grad = "linear-gradient(90deg,#4f46e5,#818cf8)"
-        edge_col = "#818cf8"
-    elif t == "pass":
-        bar_grad = "linear-gradient(90deg,#1e2330,#334155)"
-        edge_col = "#64748b"
+    edge      = p.get("edge") or 0
+    score     = p.get("signal_score")
+
+    if edge_only:
+        meter_color = {"elite": "#818cf8", "good": "#fbbf24", "watch": "#38bdf8"}.get(t, "#64748b")
+        meter_fill  = min(abs(edge) / 0.04, 1.0) * 100
+        edge_pct    = abs(edge) * 100
+        meter_text  = f"{edge_pct:.1f}%"
+        meter_sub   = "EDGE"
+        chips_html  = ""
     else:
-        bar_grad = "linear-gradient(90deg,#b45309,#fbbf24)"
-        edge_col = "#fbbf24"
+        meter_color = _score_color(score)
+        meter_fill  = min(float(score), 100.0) if score is not None else 0.0
+        meter_text  = str(int(score)) if score is not None else "—"
+        meter_sub   = ""
+        try:
+            breakdown = json.loads(p.get("signal_breakdown") or "[]")
+        except Exception:
+            breakdown = []
+        chips_html = _breakdown_chips_html(breakdown)
+
+    meter_html = _meter_svg(meter_text, meter_fill, meter_color, meter_sub)
+    edge_col   = {"elite": "#818cf8", "pass": "#64748b"}.get(t, "#fbbf24")
 
     away      = _html.escape(str(p.get("away_team") or "?"))
     home      = _html.escape(str(p.get("home_team") or "?"))
     market_s  = _html.escape(_game_market_label(p))
     pick_s    = _game_selection_label(p)
     price_s   = f"{p['bovada_price']:+d}" if p["bovada_price"] is not None else "—"
-    edge_s    = f"{(p['edge'] or 0):.1%}"
+    edge_s    = f"{edge:.1%}"
     books_s   = str(p.get("consensus_book_count") or "?")
     res_html  = _result_html(p)
     bet_badge = _bet_badge_html(p)
@@ -755,36 +880,36 @@ def _game_card_html(p: dict) -> str:
 
     return f"""
 <div class="pick {t} game" style="{tracked_style}">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
-    <div>
-      <div style="font-size:16px;font-weight:600;color:#f1f5f9">{away} @ {home}</div>
-      <div style="font-size:12px;color:#64748b;margin-top:2px">{market_s}</div>
+  <div style="display:flex;gap:12px;align-items:flex-start">
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <div>
+          <div style="font-size:16px;font-weight:600;color:#f1f5f9">{away} @ {home}</div>
+          <div style="font-size:12px;color:#64748b;margin-top:2px">{market_s}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <span class="badge {t}">{lbl}</span>{bet_badge}{res_html}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+        <span style="background:#252a38;color:#94a3b8;font-size:12px;border-radius:4px;padding:3px 9px">{market_s}</span>
+        <span style="font-size:15px;font-weight:600;color:#e2e8f0">{pick_s}</span>
+        <span style="background:#1e2330;color:#94a3b8;font-size:13px;border-radius:4px;padding:3px 9px;border:1px solid #2a3044">{price_s}</span>
+      </div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.8px">Edge</div>
+          <div style="font-size:13px;color:{edge_col};font-weight:500">{edge_s}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.8px">Books</div>
+          <div style="font-size:13px;color:#cbd5e1;font-weight:500">{books_s}</div>
+        </div>
+      </div>
+      {chips_html}{actual_html}
     </div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
-      <span class="badge {t}">{lbl}</span>{bet_badge}{res_html}
-    </div>
+    <div style="flex:0 0 auto;padding-top:2px">{meter_html}</div>
   </div>
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
-    <span style="background:#252a38;color:#94a3b8;font-size:12px;border-radius:4px;padding:3px 9px">{market_s}</span>
-    <span style="font-size:15px;font-weight:600;color:#e2e8f0">{pick_s}</span>
-    <span style="background:#1e2330;color:#94a3b8;font-size:13px;border-radius:4px;padding:3px 9px;border:1px solid #2a3044">{price_s}</span>
-  </div>
-  <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-    <div style="flex:1;background:#252a38;border-radius:99px;height:4px">
-      <div style="background:{bar_grad};width:{bar_pct}%;height:4px;border-radius:99px"></div>
-    </div>
-    <span style="font-size:12px;color:#64748b;min-width:52px;white-space:nowrap">{score_html}</span>
-  </div>
-  <div style="display:flex;gap:20px;flex-wrap:wrap">
-    <div>
-      <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.8px">Edge</div>
-      <div style="font-size:13px;color:{edge_col};font-weight:500">{edge_s}</div>
-    </div>
-    <div>
-      <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.8px">Books</div>
-      <div style="font-size:13px;color:#cbd5e1;font-weight:500">{books_s}</div>
-    </div>
-  </div>{actual_html}
 </div>"""
 
 
@@ -1034,7 +1159,7 @@ def _render_today(conn, today: str) -> None:
     <div class="dh-val">{prop_bet} picks</div>
   </div>
   <div class="dh-stat">
-    <div class="dh-lbl">Totals</div>
+    <div class="dh-lbl">Game Mkts</div>
     <div class="dh-val">{game_bet} picks</div>
   </div>
   <div class="dh-stat">
