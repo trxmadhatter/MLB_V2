@@ -261,29 +261,16 @@ def _lights_html_render(lights: dict) -> str:
         bg, txt, bdr = _PILL_COLORS[color]
         dot = _DOT_COLORS[color]
         pills.append(
-            f'<div style="background:{bg};border:1px solid {bdr};border-radius:6px;padding:5px 8px">'
-            f'<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">'
-            f'<span style="width:7px;height:7px;border-radius:50%;background:{dot};flex-shrink:0"></span>'
-            f'<span style="font-size:9px;color:#64748b;text-transform:uppercase;'
-            f'letter-spacing:0.8px;font-weight:600">{label}</span>'
+            f'<div class="light-box" style="background:{bg};border:1px solid {bdr}">'
+            f'<div class="light-top">'
+            f'<span class="light-dot" style="background:{dot}"></span>'
+            f'<span class="light-label">{label}</span>'
             f'</div>'
-            f'<div style="font-size:11px;color:{txt};font-weight:500;line-height:1.3;'
-            f'overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+            f'<div class="light-reason" style="color:{txt}">'
             f'{_html.escape(reason)}</div>'
             f'</div>'
         )
-    sb, s_text, sd = _SHADOW_BADGE_COLORS[lights["shadow_tier"]]
-    shadow = (
-        f'<span style="background:{sb};color:{s_text};border:1px solid {sd};'
-        f'border-radius:20px;font-size:10px;font-weight:700;padding:2px 8px;'
-        f'letter-spacing:0.8px;text-transform:uppercase">'
-        f'&#9672; Shadow: {lights["shadow_label"]}</span>'
-    )
-    return (
-        f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:10px">'
-        + "".join(pills)
-        + f'</div><div style="margin-top:5px">{shadow}</div>'
-    )
+    return '<div class="lights-grid">' + "".join(pills) + "</div>"
 
 
 def _attach_lights(p: dict, cal_index: dict) -> None:
@@ -303,6 +290,53 @@ def _attach_lights(p: dict, cal_index: dict) -> None:
     p["_price_color"]  = price[0]
     p["_sim_color"]    = sim[0]
     p["_track_color"]  = track[0]
+    p["_setup_reason"] = setup[1]
+    p["_price_reason"] = price[1]
+    p["_sim_reason"]   = sim[1]
+    p["_track_reason"] = track[1]
+
+
+def _decision_badge_html(p: dict) -> str:
+    tier = p.get("_shadow_tier") or _tier(p.get("recommendation", ""))
+    label = p.get("_shadow_label") or _rec_label(p.get("recommendation", ""))
+    bg, txt, bdr = _SHADOW_BADGE_COLORS.get(tier, _SHADOW_BADGE_COLORS["pass"])
+    return (
+        f'<span style="background:{bg};color:{txt};border:1px solid {bdr};'
+        f'border-radius:20px;font-size:11px;font-weight:800;padding:4px 11px;'
+        f'letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap">'
+        f'{_html.escape(str(label))}</span>'
+    )
+
+
+def _decision_why(p: dict) -> str:
+    tier = str(p.get("_shadow_label") or _rec_label(p.get("recommendation", ""))).upper()
+    setup = p.get("_setup_color")
+    price = p.get("_price_color")
+    sim = p.get("_sim_color")
+    track = p.get("_track_color")
+
+    if tier == "PASS":
+        if price == "red":
+            return f"Pass because price/value failed: {p.get('_price_reason', 'not enough value')}."
+        if sim == "red":
+            return f"Pass because simulation did not clear break-even: {p.get('_sim_reason', 'failed sim')}."
+        if setup == "red":
+            return f"Pass because the baseball setup is weak: {p.get('_setup_reason', 'weak setup')}."
+        return "Pass because one major gate failed."
+
+    if tier == "ELITE":
+        return "Elite because setup, price, simulation, and track record are all aligned."
+    if tier == "GOOD":
+        return "Good because most lights are positive and no major gate is red."
+    if tier == "WATCH":
+        if price == "yellow":
+            return f"Watchlist because the setup is interesting, but price is close: {p.get('_price_reason', 'edge short')}."
+        if sim == "gray":
+            return "Watchlist because simulation is missing or unavailable."
+        if track == "gray":
+            return "Watchlist because the track record sample is not strong enough yet."
+        return "Watchlist because the pick has promise but is missing one green light."
+    return "Decision is based on setup, price, simulation, and track record."
 
 
 def _compute_pick_sim(p: dict, season: int) -> dict:
@@ -536,17 +570,84 @@ hr { border-color: #252a38 !important; }
 
 /* Pick cards */
 .pick {
-    background: #1a1d27;
-    border: 1px solid #252a38;
+    background: linear-gradient(180deg, #1b1f2a 0%, #171a23 100%);
+    border: 1px solid #283044;
     border-radius: 10px;
-    padding: 16px;
-    margin: 0 0 8px 0;
+    padding: 14px;
+    margin: 0 0 10px 0;
+    min-height: 230px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
 }
 .pick.elite  { border-top: 2px solid #6366f1; }
 .pick.good   { border-top: 2px solid #f59e0b; }
 .pick.watch  { border-top: 2px solid #0ea5e9; }
 .pick.pass   { border-top: 2px solid #475569; }
-.pick.game  { background: #191c26; border-left: 3px solid #2a3044; }
+.pick.game  { background: linear-gradient(180deg, #1a1e29 0%, #161922 100%); border-left: 3px solid #2a3044; }
+.pick-head {
+    display:flex; justify-content:space-between; align-items:flex-start;
+    gap:12px; margin-bottom:10px;
+}
+.pick-name {
+    font-size:17px; font-weight:700; color:#f1f5f9; line-height:1.2;
+}
+.pick-team {
+    font-size:12px; color:#94a3b8; margin-top:3px;
+}
+.pick-meta {
+    display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap;
+}
+.pick-pill {
+    background:#252a38; color:#94a3b8; font-size:12px;
+    border-radius:4px; padding:3px 9px;
+}
+.pick-line {
+    font-size:15px; font-weight:700; color:#e2e8f0;
+}
+.pick-price {
+    background:#10141d; color:#cbd5e1; font-size:13px;
+    border-radius:4px; padding:3px 9px; border:1px solid #2a3044;
+}
+.pick-stats {
+    display:flex; gap:20px; flex-wrap:wrap; margin-bottom:8px;
+}
+.pick-stat-label {
+    font-size:10px; color:#475569; text-transform:uppercase; letter-spacing:0.8px;
+}
+.pick-stat-value {
+    font-size:13px; color:#cbd5e1; font-weight:600;
+}
+.lights-grid {
+    display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin-top:10px;
+}
+.light-box {
+    border-radius:7px; padding:7px 8px; min-height:58px;
+    display:flex; flex-direction:column; justify-content:center;
+}
+.light-top {
+    display:flex; align-items:center; gap:5px; margin-bottom:3px; min-width:0;
+}
+.light-dot {
+    width:8px; height:8px; border-radius:50%; flex-shrink:0;
+}
+.light-label {
+    font-size:9px; color:#64748b; text-transform:uppercase;
+    letter-spacing:0.7px; font-weight:700; white-space:nowrap;
+}
+.light-reason {
+    font-size:11px; font-weight:600; line-height:1.25;
+    overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+}
+.decision-row {
+    display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+    border-top:1px solid #252a38; margin-top:10px; padding-top:9px;
+}
+.decision-why {
+    color:#94a3b8; font-size:12px; line-height:1.4; flex:1; min-width:180px;
+}
+@media (max-width: 700px) {
+    .lights-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .pick { min-height: 0; }
+}
 
 /* Badges */
 .badge {
@@ -1072,41 +1173,42 @@ def _prop_card_html(p: dict) -> str:
     books_s   = str(p.get("consensus_book_count") or "?")
     res_html  = _result_html(p)
     bet_badge = _bet_badge_html(p)
+    decision_badge = _decision_badge_html(p)
+    decision_why = _html.escape(_decision_why(p))
     tracked_style = "border-left:3px solid #34d399;background:#0d1812;" if p.get("bet_placed") == 1 else ""
 
     return f"""
 <div class="pick {t}" style="{tracked_style}">
   <div>
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+      <div class="pick-head">
         <div>
-          <div style="font-size:16px;font-weight:600;color:#f1f5f9">{p_name}</div>
-          <div style="font-size:12px;color:#64748b;margin-top:2px">{team}</div>
+          <div class="pick-name">{p_name}</div>
+          <div class="pick-team">{team}</div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
-          <span class="badge {t}">{lbl}</span>{bet_badge}{res_html}
-        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">{bet_badge}{res_html}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
-        <span style="background:#252a38;color:#94a3b8;font-size:12px;border-radius:4px;padding:3px 9px">{mkt}</span>
-        <span style="font-size:15px;font-weight:600;color:#e2e8f0">{sel} {point_s}</span>
-        <span style="background:#1e2330;color:#94a3b8;font-size:13px;border-radius:4px;padding:3px 9px;border:1px solid #2a3044">{price_s}</span>
+      <div class="pick-meta">
+        <span class="pick-pill">{mkt}</span>
+        <span class="pick-line">{sel} {point_s}</span>
+        <span class="pick-price">{price_s}</span>
       </div>
-      <div style="display:flex;gap:20px;flex-wrap:wrap">
+      <div class="pick-stats">
         <div>
-          <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.8px">Edge</div>
-          <div style="font-size:13px;color:{edge_col};font-weight:500">{edge_s}</div>
+          <div class="pick-stat-label">Edge</div>
+          <div class="pick-stat-value" style="color:{edge_col}">{edge_s}</div>
         </div>
         <div>
-          <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.8px">EV</div>
-          <div style="font-size:13px;color:#cbd5e1;font-weight:500">{ev_s}</div>
+          <div class="pick-stat-label">EV</div>
+          <div class="pick-stat-value">{ev_s}</div>
         </div>
         <div>
-          <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.8px">Books</div>
-          <div style="font-size:13px;color:#cbd5e1;font-weight:500">{books_s}</div>
+          <div class="pick-stat-label">Books</div>
+          <div class="pick-stat-value">{books_s}</div>
         </div>
       </div>
       {chips_html}
       {p.get("_lights_html", "")}
+      <div class="decision-row">{decision_badge}<div class="decision-why">{decision_why}</div></div>
   </div>
 </div>"""
 
@@ -1137,6 +1239,8 @@ def _game_card_html(p: dict) -> str:
     books_s   = str(p.get("consensus_book_count") or "?")
     res_html  = _result_html(p)
     bet_badge = _bet_badge_html(p)
+    decision_badge = _decision_badge_html(p)
+    decision_why = _html.escape(_decision_why(p))
     tracked_style = "border-left:3px solid #34d399;background:#0d1812;" if p.get("bet_placed") == 1 else ""
 
     actual      = p.get("actual_total")
@@ -1150,32 +1254,31 @@ def _game_card_html(p: dict) -> str:
     return f"""
 <div class="pick {t} game" style="{tracked_style}">
   <div>
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+      <div class="pick-head">
         <div>
-          <div style="font-size:16px;font-weight:600;color:#f1f5f9">{away} @ {home}</div>
-          <div style="font-size:12px;color:#64748b;margin-top:2px">{market_s}</div>
+          <div class="pick-name">{away} @ {home}</div>
+          <div class="pick-team">{market_s}</div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
-          <span class="badge {t}">{lbl}</span>{bet_badge}{res_html}
-        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">{bet_badge}{res_html}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
-        <span style="background:#252a38;color:#94a3b8;font-size:12px;border-radius:4px;padding:3px 9px">{market_s}</span>
-        <span style="font-size:15px;font-weight:600;color:#e2e8f0">{pick_s}</span>
-        <span style="background:#1e2330;color:#94a3b8;font-size:13px;border-radius:4px;padding:3px 9px;border:1px solid #2a3044">{price_s}</span>
+      <div class="pick-meta">
+        <span class="pick-pill">{market_s}</span>
+        <span class="pick-line">{pick_s}</span>
+        <span class="pick-price">{price_s}</span>
       </div>
-      <div style="display:flex;gap:20px;flex-wrap:wrap">
+      <div class="pick-stats">
         <div>
-          <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.8px">Edge</div>
-          <div style="font-size:13px;color:{edge_col};font-weight:500">{edge_s}</div>
+          <div class="pick-stat-label">Edge</div>
+          <div class="pick-stat-value" style="color:{edge_col}">{edge_s}</div>
         </div>
         <div>
-          <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.8px">Books</div>
-          <div style="font-size:13px;color:#cbd5e1;font-weight:500">{books_s}</div>
+          <div class="pick-stat-label">Books</div>
+          <div class="pick-stat-value">{books_s}</div>
         </div>
       </div>
       {chips_html}{actual_html}
       {p.get("_lights_html", "")}
+      <div class="decision-row">{decision_badge}<div class="decision-why">{decision_why}</div></div>
   </div>
 </div>"""
 
