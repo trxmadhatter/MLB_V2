@@ -91,6 +91,14 @@ MARKET_EDGE_MIN: dict[tuple[str, str], float] = {
     ("pitcher_strikeouts", "Under"): 0.03,
 }
 
+# Markets approved for edge-only classification — score gate bypassed.
+# Criteria: live data shows near-random signal AUC AND strong profitable structural edge.
+# totals Under is provisional (n<100 graded live picks).
+EDGE_ONLY_MARKETS: frozenset[tuple[str, str]] = frozenset({
+    ("batter_total_bases", "Under"),
+    ("totals",             "Under"),  # provisional
+})
+
 # Markets where +100 or better (underdog) price is unprofitable — exclude those lines
 MARKET_EXCLUDE_PLUS_ODDS: set[tuple[str, str]] = {
     ("pitcher_outs", "Over"),   # +100 or better: 38.3% WR, -8.80u in backtest

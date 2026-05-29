@@ -2,7 +2,7 @@ from consensus import american_to_decimal
 from config import (
     EDGE_RECOMMENDED, EDGE_LEAN, EDGE_MIN_BET, BET_WHITELIST,
     BET_PRICE_MIN, BET_PRICE_MAX,
-    MARKET_EDGE_MIN, MARKET_EXCLUDE_PLUS_ODDS,
+    MARKET_EDGE_MIN, MARKET_EXCLUDE_PLUS_ODDS, EDGE_ONLY_MARKETS,
     SCORE_RECOMMENDED, SCORE_LEAN, SCORE_WATCH,
 )
 from market_learn import load_calibration, _edge_bucket
@@ -84,6 +84,9 @@ def classify_by_score(score: int, edge: float, market_key: str, selection: str,
     cal_blocked = (market_key, selection, _edge_bucket(edge)) in _CAL_SKIP
 
     if bettable_edge and not cal_blocked:
+        if mkt in EDGE_ONLY_MARKETS:
+            # Proven structural edge: bypass score gate, tier by edge only
+            return "A_BET" if edge >= EDGE_RECOMMENDED else "B_BET"
         if edge >= EDGE_RECOMMENDED and score >= SCORE_RECOMMENDED:
             return "A_BET"
         if edge >= EDGE_LEAN and score >= SCORE_LEAN:

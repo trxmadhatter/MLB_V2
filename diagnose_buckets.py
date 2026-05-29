@@ -196,6 +196,34 @@ def analyze(picks: list[dict], focus: list[str] | None = None) -> None:
             print(f"    Current (balanced classify_by_score): {current_bet:>4} bet  "
                   f"({current_bet/len(eligible)*100:.0f}%)")
 
+        # Price band breakdown (follow-up item: 13 price_filter blocks on BTB Under)
+        if mkt == "batter_total_bases" and sel == "Under":
+            btb_picks = [p for p in picks
+                         if p["market_key"] == mkt and p["selection"] == sel
+                         and p["result"] in ("WIN", "LOSS", "PUSH")]
+            if btb_picks:
+                bands = [
+                    ("-140 to -121", lambda p: -140 <= p["bovada_price"] <= -121),
+                    ("-120 to -101", lambda p: -120 <= p["bovada_price"] <= -101),
+                    ("-100 to -80",  lambda p: -100 <= p["bovada_price"] <= -80),
+                    ("+100 to +150", lambda p: 100  <= p["bovada_price"] <= 150),
+                    ("out of range", lambda p: not (-140 <= p["bovada_price"] <= 150)),
+                ]
+                print(f"\n  BTB Under — price band breakdown (all graded):")
+                print(f"    {'BAND':<18} {'CNT':>4}  {'W-L':>9}  {'WR%':>6}  {'NET':>7}  {'ROI':>6}")
+                print("    " + "-" * 56)
+                for label, pred in bands:
+                    band = [p for p in btb_picks if pred(p)]
+                    if not band:
+                        continue
+                    w = sum(1 for p in band if p["result"] == "WIN")
+                    l = sum(1 for p in band if p["result"] == "LOSS")
+                    wr = w / (w + l) if (w + l) else 0
+                    net = sum(p["profit_units"] or 0 for p in band)
+                    roi = net / len(band) * 100
+                    print(f"    {label:<18} {len(band):>4}  {w}-{l:>3}  "
+                          f"  {wr*100:>5.1f}%  {net:>+7.2f}  {roi:>+6.1f}%")
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Bucket diagnostic — no API calls")

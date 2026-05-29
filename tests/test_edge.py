@@ -105,3 +105,55 @@ class TestClassifyByScore:
 
     def test_pass_when_price_is_too_heavy(self):
         assert classify_by_score(80, 0.080, "batter_total_bases", "Under", -145) == "PASS"
+
+
+class TestEdgeOnlyMarkets:
+    """
+    batter_total_bases Under and totals Under bypass the score gate.
+    Price filter, whitelist, calibration, and edge floors still apply.
+    """
+
+    # ── batter_total_bases Under ─────────────────────────────────────────────
+
+    def test_btb_under_low_score_b_bet_at_lean_edge(self):
+        # Score 20 (far below SCORE_LEAN=50) but edge qualifies → B_BET
+        assert classify_by_score(20, 0.020, "batter_total_bases", "Under", -115) == "B_BET"
+
+    def test_btb_under_low_score_b_bet_at_1p5_edge(self):
+        # Edge exactly at EDGE_LEAN=0.015, price-adjusted floor also 0.015 at -115
+        assert classify_by_score(0, 0.015, "batter_total_bases", "Under", -115) == "B_BET"
+
+    def test_btb_under_low_score_a_bet_at_recommended_edge(self):
+        # Edge >= EDGE_RECOMMENDED → A_BET regardless of score
+        assert classify_by_score(0, 0.040, "batter_total_bases", "Under", -115) == "A_BET"
+
+    def test_btb_under_edge_below_lean_is_watch(self):
+        # Edge < EDGE_LEAN and also below price-adjusted floor → WATCH (edge > 0)
+        assert classify_by_score(0, 0.010, "batter_total_bases", "Under", -115) == "WATCH"
+
+    def test_btb_under_price_filter_still_blocks(self):
+        # Price too heavy — bypass does not apply before price check
+        assert classify_by_score(0, 0.040, "batter_total_bases", "Under", -145) == "PASS"
+
+    def test_btb_under_price_adjusted_floor_still_applies(self):
+        # At -130 price, required_edge_for_price = 0.03; edge 0.02 is below floor → WATCH
+        assert classify_by_score(0, 0.020, "batter_total_bases", "Under", -130) == "WATCH"
+
+    def test_btb_over_still_requires_score(self):
+        # batter_total_bases Over is NOT in EDGE_ONLY_MARKETS
+        # Score 0 below SCORE_LEAN → not B_BET
+        result = classify_by_score(0, 0.020, "batter_total_bases", "Over", -115)
+        assert result not in ("A_BET", "B_BET")
+
+    # ── totals Under (provisional) ───────────────────────────────────────────
+
+    def test_totals_under_low_score_b_bet(self):
+        assert classify_by_score(0, 0.020, "totals", "Under", -110) == "B_BET"
+
+    def test_totals_under_edge_below_lean_is_watch(self):
+        assert classify_by_score(0, 0.010, "totals", "Under", -110) == "WATCH"
+
+    def test_totals_over_still_requires_score(self):
+        # totals Over is NOT in EDGE_ONLY_MARKETS
+        result = classify_by_score(0, 0.020, "totals", "Over", -110)
+        assert result not in ("A_BET", "B_BET")
