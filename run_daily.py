@@ -467,8 +467,9 @@ def _analyze_games(conn, pulled_at: str, today: str,
                     game_data=game_data,
                 )
             else:
-                # h2h/spreads: no applicable totals signals — neutral score, edge-only
-                sig_score, breakdown = 50, []
+                # h2h/spreads: no signal scoring — set score above all thresholds
+                # so edge alone determines the recommendation tier
+                sig_score, breakdown = 100, []
 
             rec = classify_by_score(sig_score, edge, market_key, selection,
                                     price=bov["price"])

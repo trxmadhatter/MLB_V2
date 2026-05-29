@@ -452,7 +452,12 @@ def _report_summary(bt_conn: sqlite3.Connection) -> list:
 
 def _report_by_market(bt_conn: sqlite3.Connection) -> list:
     return bt_conn.execute("""
-        SELECT market_key, recommendation,
+        SELECT market_key,
+               CASE recommendation
+                   WHEN 'RECOMMENDED' THEN 'A_BET'
+                   WHEN 'LEAN'        THEN 'B_BET'
+                   ELSE recommendation
+               END AS tier,
                COUNT(*) AS total,
                SUM(CASE WHEN result='WIN'  THEN 1 ELSE 0 END) AS wins,
                SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END) AS losses,
@@ -463,7 +468,7 @@ def _report_by_market(bt_conn: sqlite3.Connection) -> list:
         FROM backtest_picks
         WHERE result != 'PENDING'
           AND recommendation IN ('RECOMMENDED', 'LEAN', 'A_BET', 'B_BET')
-        GROUP BY market_key, recommendation
+        GROUP BY market_key, tier
         ORDER BY net_units DESC
     """).fetchall()
 
@@ -529,7 +534,7 @@ def print_report(
         label = MARKET_LABELS.get(r['market_key'], r['market_key'])
         wlp   = f"{r['wins']}-{r['losses']}-{r['pushes']}"
         wp    = f"{r['win_pct']:.1f}%" if r['win_pct'] is not None else "  --"
-        print(f"  {label:<16} {r['recommendation']:<14} {r['total']:>4}  {wlp:>11}  {wp:>6}  {r['net_units']:>+7.2f}")
+        print(f"  {label:<16} {r['tier']:<14} {r['total']:>4}  {wlp:>11}  {wp:>6}  {r['net_units']:>+7.2f}")
 
     print("\n-- BY EDGE BUCKET ------------------------------------------")
     print(f"  {'BUCKET':<16} {'TOT':>4}  {'W-L-P':>11}  {'WIN%':>6}  {'NET':>7}  {'ROI':>6}")
@@ -551,7 +556,7 @@ def print_report(
                ROUND(SUM(COALESCE(profit_units, 0)), 2) AS net_units
         FROM backtest_game_picks
         WHERE result != 'PENDING'
-          AND recommendation IN ('RECOMMENDED', 'LEAN')
+          AND recommendation IN ('RECOMMENDED', 'LEAN', 'A_BET', 'B_BET')
         GROUP BY market_key, selection
         ORDER BY net_units DESC
     """).fetchall()
