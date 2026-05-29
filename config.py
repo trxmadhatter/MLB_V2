@@ -65,7 +65,7 @@ MIN_CONSENSUS_BOOKS = 3
 
 # Edge thresholds
 EDGE_RECOMMENDED = 0.04   # >= 4%
-EDGE_LEAN = 0.02          # >= 2%, < 4%
+EDGE_LEAN = 0.015         # >= 1.5%, < 4%
 EDGE_MIN_BET = 0.01       # >= 1% required for whitelist markets
 
 # Winning market/direction combinations; calibration filter handles bad edge buckets.
@@ -88,7 +88,7 @@ BET_WHITELIST: set[tuple[str, str]] = {
 
 # Per-market minimum edge overrides (applied on top of global EDGE_MIN_BET)
 MARKET_EDGE_MIN: dict[tuple[str, str], float] = {
-    ("pitcher_strikeouts", "Under"): 0.08,
+    ("pitcher_strikeouts", "Under"): 0.03,
 }
 
 # Markets where +100 or better (underdog) price is unprofitable — exclude those lines
@@ -114,7 +114,7 @@ PICKS_DIR = ROOT / "data" / "picks"
 # ── Signal scoring ────────────────────────────────────────────────────────────
 
 SCORE_RECOMMENDED = 65   # score >= this -> A_BET
-SCORE_LEAN        = 55   # score >= this -> B_BET, 45+ can remain WATCH
+SCORE_LEAN        = 50   # score >= this -> B_BET, 45+ can remain WATCH
 SCORE_WATCH       = 45
 
 # Per-market signal weights. Values are max points each signal can contribute.

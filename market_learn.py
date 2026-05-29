@@ -7,7 +7,7 @@ import sqlite3
 from pathlib import Path
 
 CALIBRATION_PATH = Path(__file__).parent / "data" / "market_calibration.json"
-MIN_SAMPLE = 20
+MIN_SAMPLE = 50
 
 
 def _edge_bucket(edge: float) -> str:

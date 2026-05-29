@@ -57,33 +57,33 @@ class TestComputeCalibration:
 
     def test_below_min_sample_excluded(self, bt_conn):
         from market_learn import compute_calibration
-        _insert(bt_conn, [_p() for _ in range(19)])  # 19 < MIN_SAMPLE of 20
+        _insert(bt_conn, [_p() for _ in range(49)])  # 49 < MIN_SAMPLE of 50
         assert compute_calibration(bt_conn) == []
 
     def test_at_min_sample_included(self, bt_conn):
         from market_learn import compute_calibration
-        _insert(bt_conn, [_p() for _ in range(20)])
+        _insert(bt_conn, [_p() for _ in range(50)])
         assert len(compute_calibration(bt_conn)) == 1
 
     def test_profitable_when_win_rate_above_breakeven(self, bt_conn):
         # -115 breakeven = 115/215 = 53.5%
-        # 15W / 5L = 75% win rate -> profitable
+        # 38W / 12L = 76% win rate -> profitable
         from market_learn import compute_calibration
         picks = (
-            [_p(result="WIN",  profit_units=0.87) for _ in range(15)]
-            + [_p(result="LOSS", profit_units=-1.0) for _ in range(5)]
+            [_p(result="WIN",  profit_units=0.87) for _ in range(38)]
+            + [_p(result="LOSS", profit_units=-1.0) for _ in range(12)]
         )
         _insert(bt_conn, picks)
         cal = compute_calibration(bt_conn)
         assert cal[0]["profitable"] is True
-        assert abs(cal[0]["win_rate"] - 0.75) < 0.001
+        assert abs(cal[0]["win_rate"] - 0.76) < 0.001
 
     def test_unprofitable_when_win_rate_below_breakeven(self, bt_conn):
-        # 10W / 10L = 50% < 53.5% breakeven
+        # 25W / 25L = 50% < 53.5% breakeven
         from market_learn import compute_calibration
         picks = (
-            [_p(result="WIN",  profit_units=0.87) for _ in range(10)]
-            + [_p(result="LOSS", profit_units=-1.0) for _ in range(10)]
+            [_p(result="WIN",  profit_units=0.87) for _ in range(25)]
+            + [_p(result="LOSS", profit_units=-1.0) for _ in range(25)]
         )
         _insert(bt_conn, picks)
         cal = compute_calibration(bt_conn)
@@ -92,12 +92,12 @@ class TestComputeCalibration:
     def test_sorted_best_first(self, bt_conn):
         from market_learn import compute_calibration
         ko = (
-            [_p(market_key="pitcher_strikeouts", result="WIN",  profit_units=0.87) for _ in range(15)]
-            + [_p(market_key="pitcher_strikeouts", result="LOSS", profit_units=-1.0) for _ in range(5)]
+            [_p(market_key="pitcher_strikeouts", result="WIN",  profit_units=0.87) for _ in range(38)]
+            + [_p(market_key="pitcher_strikeouts", result="LOSS", profit_units=-1.0) for _ in range(12)]
         )
         tb = (
-            [_p(market_key="batter_total_bases", result="WIN",  profit_units=0.87) for _ in range(8)]
-            + [_p(market_key="batter_total_bases", result="LOSS", profit_units=-1.0) for _ in range(12)]
+            [_p(market_key="batter_total_bases", result="WIN",  profit_units=0.87) for _ in range(20)]
+            + [_p(market_key="batter_total_bases", result="LOSS", profit_units=-1.0) for _ in range(30)]
         )
         _insert(bt_conn, ko + tb)
         cal = compute_calibration(bt_conn)
@@ -105,17 +105,17 @@ class TestComputeCalibration:
         assert cal[-1]["market_key"] == "batter_total_bases"
 
     def test_pushes_excluded_from_win_rate_calc(self, bt_conn):
-        # 15W / 5L / 5P -> win rate = 15/20 = 75%, not 15/25 = 60%
-        # 20 decided (W+L) satisfies MIN_SAMPLE
+        # 38W / 12L / 5P -> win rate = 38/50 = 76%, not 38/55 = 69%
+        # 50 decided (W+L) satisfies MIN_SAMPLE
         from market_learn import compute_calibration
         picks = (
-            [_p(result="WIN",  profit_units=0.87)  for _ in range(15)]
-            + [_p(result="LOSS", profit_units=-1.0) for _ in range(5)]
+            [_p(result="WIN",  profit_units=0.87)  for _ in range(38)]
+            + [_p(result="LOSS", profit_units=-1.0) for _ in range(12)]
             + [_p(result="PUSH", profit_units=0.0)  for _ in range(5)]
         )
         _insert(bt_conn, picks)
         cal = compute_calibration(bt_conn)
-        assert abs(cal[0]["win_rate"] - 15 / 20) < 0.001
+        assert abs(cal[0]["win_rate"] - 38 / 50) < 0.001
 
 
 class TestSaveLoadCalibration:
