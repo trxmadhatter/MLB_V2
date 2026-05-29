@@ -588,33 +588,24 @@ hr { border-color: #252a38 !important; }
     gap:12px; margin-bottom:10px;
 }
 .pick-name {
-    font-size:17px; font-weight:700; color:#f1f5f9; line-height:1.2;
+    font-size:14px; font-weight:700; color:#f1f5f9; line-height:1.2; letter-spacing:0.1px;
 }
 .pick-team {
-    font-size:12px; color:#94a3b8; margin-top:3px;
+    font-size:13px; color:#64748b; margin-top:3px;
 }
 .pick-meta {
-    display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap;
+    display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;
 }
 .pick-pill {
-    background:#252a38; color:#94a3b8; font-size:12px;
+    background:#252a38; color:#94a3b8; font-size:13px;
     border-radius:4px; padding:3px 9px;
 }
 .pick-line {
-    font-size:15px; font-weight:700; color:#e2e8f0;
+    font-size:13px; font-weight:700; color:#e2e8f0;
 }
 .pick-price {
     background:#10141d; color:#cbd5e1; font-size:13px;
     border-radius:4px; padding:3px 9px; border:1px solid #2a3044;
-}
-.pick-stats {
-    display:flex; gap:20px; flex-wrap:wrap; margin-bottom:8px;
-}
-.pick-stat-label {
-    font-size:10px; color:#475569; text-transform:uppercase; letter-spacing:0.8px;
-}
-.pick-stat-value {
-    font-size:13px; color:#cbd5e1; font-weight:600;
 }
 .lights-grid {
     display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin-top:10px;
@@ -634,7 +625,7 @@ hr { border-color: #252a38 !important; }
     letter-spacing:0.7px; font-weight:700; white-space:nowrap;
 }
 .light-reason {
-    font-size:11px; font-weight:600; line-height:1.25;
+    font-size:12px; font-weight:600; line-height:1.25;
     overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
 }
 .decision-row {
@@ -642,7 +633,7 @@ hr { border-color: #252a38 !important; }
     border-top:1px solid #252a38; margin-top:10px; padding-top:9px;
 }
 .decision-why {
-    color:#94a3b8; font-size:12px; line-height:1.4; flex:1; min-width:180px;
+    color:#94a3b8; font-size:13px; line-height:1.4; flex:1; min-width:180px;
 }
 @media (max-width: 700px) {
     .lights-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -1151,8 +1142,6 @@ def _time_sort_key(p: dict) -> tuple:
 
 def _prop_card_html(p: dict) -> str:
     t     = _tier(p["recommendation"])
-    lbl   = _rec_label(p["recommendation"])
-    edge  = p.get("edge") or 0
 
     try:
         breakdown = json.loads(p.get("signal_breakdown") or "[]")
@@ -1160,17 +1149,12 @@ def _prop_card_html(p: dict) -> str:
         breakdown = []
     chips_html = _breakdown_chips_html(breakdown)
 
-    edge_col = {"elite": "#818cf8", "pass": "#64748b"}.get(t, "#fbbf24")
-
     p_name    = _html.escape(str(p["player_name"]))
     team      = _html.escape(_full_team(p.get("team_abbr") or ""))
     mkt       = _html.escape(_mkt(p["market_key"]))
     sel       = _html.escape(str(p["selection"]))
     point_s   = f"{p['point']:g}" if p["point"] is not None else "?"
     price_s   = f"{p['bovada_price']:+d}" if p["bovada_price"] is not None else "—"
-    edge_s    = f"{edge:.1%}"
-    ev_s      = f"{(p.get('ev') or 0):+.1%}"
-    books_s   = str(p.get("consensus_book_count") or "?")
     res_html  = _result_html(p)
     bet_badge = _bet_badge_html(p)
     decision_badge = _decision_badge_html(p)
@@ -1192,20 +1176,6 @@ def _prop_card_html(p: dict) -> str:
         <span class="pick-line">{sel} {point_s}</span>
         <span class="pick-price">{price_s}</span>
       </div>
-      <div class="pick-stats">
-        <div>
-          <div class="pick-stat-label">Edge</div>
-          <div class="pick-stat-value" style="color:{edge_col}">{edge_s}</div>
-        </div>
-        <div>
-          <div class="pick-stat-label">EV</div>
-          <div class="pick-stat-value">{ev_s}</div>
-        </div>
-        <div>
-          <div class="pick-stat-label">Books</div>
-          <div class="pick-stat-value">{books_s}</div>
-        </div>
-      </div>
       {chips_html}
       {p.get("_lights_html", "")}
       <div class="decision-row">{decision_badge}<div class="decision-why">{decision_why}</div></div>
@@ -1215,9 +1185,7 @@ def _prop_card_html(p: dict) -> str:
 
 def _game_card_html(p: dict) -> str:
     t         = _tier(p["recommendation"])
-    lbl       = _rec_label(p["recommendation"])
     edge_only = _is_edge_only_game_market(p)
-    edge      = p.get("edge") or 0
 
     if edge_only:
         chips_html  = ""
@@ -1228,15 +1196,11 @@ def _game_card_html(p: dict) -> str:
             breakdown = []
         chips_html = _breakdown_chips_html(breakdown)
 
-    edge_col   = {"elite": "#818cf8", "pass": "#64748b"}.get(t, "#fbbf24")
-
     away      = _html.escape(str(p.get("away_team") or "?"))
     home      = _html.escape(str(p.get("home_team") or "?"))
     market_s  = _html.escape(_game_market_label(p))
     pick_s    = _game_selection_label(p)
     price_s   = f"{p['bovada_price']:+d}" if p["bovada_price"] is not None else "—"
-    edge_s    = f"{edge:.1%}"
-    books_s   = str(p.get("consensus_book_count") or "?")
     res_html  = _result_html(p)
     bet_badge = _bet_badge_html(p)
     decision_badge = _decision_badge_html(p)
@@ -1265,16 +1229,6 @@ def _game_card_html(p: dict) -> str:
         <span class="pick-pill">{market_s}</span>
         <span class="pick-line">{pick_s}</span>
         <span class="pick-price">{price_s}</span>
-      </div>
-      <div class="pick-stats">
-        <div>
-          <div class="pick-stat-label">Edge</div>
-          <div class="pick-stat-value" style="color:{edge_col}">{edge_s}</div>
-        </div>
-        <div>
-          <div class="pick-stat-label">Books</div>
-          <div class="pick-stat-value">{books_s}</div>
-        </div>
       </div>
       {chips_html}{actual_html}
       {p.get("_lights_html", "")}
