@@ -467,12 +467,14 @@ def _analyze_games(conn, pulled_at: str, today: str,
                     game_data=game_data,
                 )
             else:
-                # h2h/spreads: no signal scoring — set score above all thresholds
-                # so edge alone determines the recommendation tier
+                # h2h/spreads: no signal scoring. Use a temporary score above
+                # thresholds for classification, but store NULL so displays do
+                # not show a fake 100.
                 sig_score, breakdown = 100, []
 
             rec = classify_by_score(sig_score, edge, market_key, selection,
                                     price=bov["price"])
+            stored_score = None if market_key in {"h2h", "spreads"} else sig_score
 
             upsert_game_pick(conn, {
                 "pick_date":              today,
@@ -491,7 +493,7 @@ def _analyze_games(conn, pulled_at: str, today: str,
                 "consensus_book_count":   consensus["book_count"],
                 "edge":                   round(edge, 6),
                 "recommendation":         rec,
-                "signal_score":           sig_score,
+                "signal_score":           stored_score,
                 "signal_breakdown":       json.dumps(breakdown),
             })
             games_evaluated += 1
@@ -501,7 +503,7 @@ def _analyze_games(conn, pulled_at: str, today: str,
 
 def _print_game_summary(conn, pick_date: str) -> None:
     rows = conn.execute("""
-        SELECT home_team, away_team, selection, point, bovada_price,
+        SELECT home_team, away_team, market_key, selection, point, bovada_price,
                edge, signal_score, recommendation, commence_time
         FROM daily_game_picks
         WHERE pick_date = ?
@@ -509,19 +511,20 @@ def _print_game_summary(conn, pick_date: str) -> None:
         ORDER BY commence_time ASC, recommendation DESC, signal_score DESC
     """, (pick_date,)).fetchall()
 
-    print(f"\n  GAME TOTALS — {pick_date}")
+    print(f"\n  GAME MARKETS — {pick_date}")
     if not rows:
-        print("  No game total picks today.")
+        print("  No game market picks today.")
         return
 
-    print(f"  {'HOME':<20} {'AWAY':<20} {'SEL':<6} {'LINE':>4}  {'BOVADA':>6}  {'EDGE':>6}  {'SCORE':>5}  TIER")
+    print(f"  {'HOME':<20} {'AWAY':<20} {'MKT':<7} {'SEL':<6} {'LINE':>4}  {'BOVADA':>6}  {'EDGE':>6}  {'SCORE':>9}  TIER")
     print("  " + "-" * 80)
     for r in rows:
         tag = "**" if r["recommendation"] in ("A_BET", "RECOMMENDED") else " >"
+        score_s = f"{r['signal_score']:>9d}" if r["signal_score"] is not None else "edge-only"
         print(
-            f"{tag} {r['home_team']:<20} {r['away_team']:<20} {r['selection']:<6} "
+            f"{tag} {r['home_team']:<20} {r['away_team']:<20} {r['market_key']:<7} {r['selection']:<6} "
             f"{r['point']:>4.1f}  {r['bovada_price']:>+6d}  "
-            f"{r['edge']:>+5.1%}  {r['signal_score'] or 0:>5d}  {r['recommendation']}"
+            f"{r['edge']:>+5.1%}  {score_s}  {r['recommendation']}"
         )
 
 
@@ -635,7 +638,7 @@ def main() -> None:
     csv_path = _export_csv(conn, today)
     print(f"  CSV: {csv_path}")
 
-    print("\n[3b] Scoring game totals...")
+    print("\n[3b] Scoring game markets...")
     games_eval, _ = _analyze_games(conn, pulled_at, today, game_data=game_data)
     print(f"  Game lines evaluated: {games_eval}")
 

@@ -36,6 +36,27 @@ def _rec_label(rec: str) -> str:
     )
 
 
+def _game_market_label(p: dict) -> str:
+    market = p.get("market_key")
+    if market == "h2h":
+        return "Moneyline"
+    if market == "spreads":
+        return "Run Line"
+    return "Game Total"
+
+
+def _game_pick_label(p: dict) -> str:
+    selection = str(p.get("selection") or "")
+    if p.get("market_key") == "h2h":
+        team = p.get("home_team") if selection == "Home" else p.get("away_team")
+        return str(team or selection)
+    if p.get("market_key") == "spreads":
+        team = p.get("home_team") if selection == "Home" else p.get("away_team")
+        return f"{team or selection} {p['point']:+g}"
+    direction = "Over" if selection.lower() == "over" else "Under"
+    return f"{direction} {p['point']}"
+
+
 def send_promotion_alert(promoted: list[dict], today: str) -> None:
     """Compact alert email when Watchlist picks upgrade to Elite or Good."""
     import html as _html
@@ -167,13 +188,13 @@ def get_today_game_picks(conn, today: str) -> list[dict]:
         WHERE pick_date = ?
           AND recommendation IN ('A_BET','B_BET','RECOMMENDED','LEAN')
           AND emailed = 0
-        ORDER BY recommendation DESC, signal_score DESC
+        ORDER BY recommendation DESC, COALESCE(signal_score, 0) DESC
     """, (today,)).fetchall()]
 
 
 def get_yesterday_game_results(conn, yesterday: str) -> list[dict]:
     return [dict(r) for r in conn.execute("""
-        SELECT home_team, away_team, selection, point,
+        SELECT home_team, away_team, market_key, selection, point,
                bovada_price, edge, result, recommendation
         FROM daily_game_picks
         WHERE pick_date = ?
@@ -362,22 +383,23 @@ def results_table(picks: list[dict]) -> str:
 
 def game_picks_table(picks: list[dict]) -> str:
     if not picks:
-        return "<p style='color:#555;font-size:14px;margin:0;'>No qualifying game total picks today.</p>"
+        return "<p style='color:#555;font-size:14px;margin:0;'>No qualifying game market picks today.</p>"
 
     rows = ""
     for p in picks:
         color = _rec_color(p["recommendation"])
-        direction = "Over" if p["selection"].lower() == "over" else "Under"
+        market_label = _game_market_label(p)
+        direction = _game_pick_label(p)
         rows += f"""
         <tr>
           <td style="padding:11px 14px;border-bottom:1px solid #1a2a3a;">
             <div style="font-weight:700;color:#fff;font-size:14px;">
               {p.get('away_team','?')} @ {p.get('home_team','?')}
             </div>
-            <div style="color:#556;font-size:11px;margin-top:2px;">Game Total</div>
+            <div style="color:#556;font-size:11px;margin-top:2px;">{market_label}</div>
           </td>
           <td style="padding:11px 14px;border-bottom:1px solid #1a2a3a;color:#fff;font-size:14px;font-weight:600;">
-            {direction} {p['point']}
+            {direction}
           </td>
           <td style="padding:11px 14px;border-bottom:1px solid #1a2a3a;color:#aaa;font-size:13px;">
             {_fmt_odds(p['bovada_price'])}
@@ -410,19 +432,21 @@ def game_picks_table(picks: list[dict]) -> str:
 
 def game_results_table(picks: list[dict]) -> str:
     if not picks:
-        return "<p style='color:#555;font-size:14px;margin:0;'>No graded game total picks from yesterday.</p>"
+        return "<p style='color:#555;font-size:14px;margin:0;'>No graded game market picks from yesterday.</p>"
 
     rows = ""
     for p in picks:
         color, label = _result_color(p["result"])
-        direction = "Over" if p["selection"].lower() == "over" else "Under"
+        market_label = _game_market_label(p)
+        direction = _game_pick_label(p)
         rows += f"""
         <tr>
           <td style="padding:10px 14px;border-bottom:1px solid #1a2a3a;font-weight:600;color:#fff;font-size:14px;">
             {p.get('away_team','?')} @ {p.get('home_team','?')}
+            <div style="color:#556;font-size:11px;margin-top:2px;">{market_label}</div>
           </td>
           <td style="padding:10px 14px;border-bottom:1px solid #1a2a3a;color:#fff;font-size:13px;">
-            {direction} {p['point']}
+            {direction}
           </td>
           <td style="padding:10px 14px;border-bottom:1px solid #1a2a3a;color:#aaa;font-size:13px;">
             {_fmt_odds(p['bovada_price'])}
@@ -502,9 +526,9 @@ def build_html(today_picks, yesterday_picks, record, today, yesterday,
       </div>
 
       {section(f"Today's Player Props — {today_label}", picks_table(today_picks))}
-      {section(f"Today's Game Totals — {today_label}", game_picks_table(today_game_picks))}
+      {section(f"Today's Game Markets — {today_label}", game_picks_table(today_game_picks))}
       {section(f"Yesterday's Prop Results — {yesterday_label}", results_table(yesterday_picks))}
-      {section(f"Yesterday's Game Total Results — {yesterday_label}", game_results_table(yesterday_game_results))}
+      {section(f"Yesterday's Game Market Results — {yesterday_label}", game_results_table(yesterday_game_results))}
       {section("Running Record (Live Picks Only)", record_bar(record))}
 
       <p style="color:#2a3a4a;font-size:11px;margin-top:24px;text-align:center;">
@@ -541,11 +565,10 @@ def send(today_picks, yesterday_picks, record, today, yesterday,
             f"{p['player_name']} | {p['market_key']} | {p['selection']} {p['point']} | "
             f"{_fmt_odds(p['bovada_price'])} | {p['edge']*100:+.1f}% edge | {_rec_label(p['recommendation'])}"
         )
-    plain_lines += ["", "=== TODAY'S GAME TOTALS ==="]
+    plain_lines += ["", "=== TODAY'S GAME MARKETS ==="]
     for p in today_game_picks:
-        direction = "Over" if p["selection"].lower() == "over" else "Under"
         plain_lines.append(
-            f"{p.get('away_team','?')} @ {p.get('home_team','?')} | {direction} {p['point']} | "
+            f"{p.get('away_team','?')} @ {p.get('home_team','?')} | {_game_market_label(p)} | {_game_pick_label(p)} | "
             f"{_fmt_odds(p['bovada_price'])} | {p['edge']*100:+.1f}% edge | {_rec_label(p['recommendation'])}"
         )
     plain_lines += ["", "=== YESTERDAY'S PROP RESULTS ==="]
@@ -554,11 +577,10 @@ def send(today_picks, yesterday_picks, record, today, yesterday,
             f"{p['player_name']} | {p['selection']} {p['point']} | "
             f"{_fmt_odds(p['bovada_price'])} | {p.get('result','PENDING')}"
         )
-    plain_lines += ["", "=== YESTERDAY'S GAME TOTAL RESULTS ==="]
+    plain_lines += ["", "=== YESTERDAY'S GAME MARKET RESULTS ==="]
     for p in yesterday_game_results:
-        direction = "Over" if p["selection"].lower() == "over" else "Under"
         plain_lines.append(
-            f"{p.get('away_team','?')} @ {p.get('home_team','?')} | {direction} {p['point']} | "
+            f"{p.get('away_team','?')} @ {p.get('home_team','?')} | {_game_market_label(p)} | {_game_pick_label(p)} | "
             f"{_fmt_odds(p['bovada_price'])} | {p.get('result','PENDING')}"
         )
     plain_lines += [
@@ -634,7 +656,7 @@ def main() -> None:
     record                 = get_running_record(conn)
 
     total_today = len(today_picks) + len(today_game_picks)
-    print(f"\n[Email] {total_today} picks today ({len(today_game_picks)} game totals), "
+    print(f"\n[Email] {total_today} picks today ({len(today_game_picks)} game markets), "
           f"{len(yesterday_picks) + len(yesterday_game_results)} graded yesterday")
     if total_today == 0 and _email_already_sent(today):
         print("  No unemailed picks and today's email was already sent — skipping")

@@ -622,6 +622,34 @@ def _bet_badge_html(p: dict) -> str:
     return ""
 
 
+def _is_edge_only_game_market(p: dict) -> bool:
+    return p.get("market_key") in {"h2h", "spreads"}
+
+
+def _game_market_label(p: dict) -> str:
+    market = p.get("market_key")
+    if market == "h2h":
+        return "Moneyline"
+    if market == "spreads":
+        return "Run Line"
+    return "Game Total"
+
+
+def _game_selection_label(p: dict) -> str:
+    selection = str(p.get("selection") or "")
+    if p.get("market_key") == "h2h":
+        team = p.get("home_team") if selection == "Home" else p.get("away_team")
+        return _html.escape(str(team or selection))
+    if p.get("market_key") == "spreads":
+        team = p.get("home_team") if selection == "Home" else p.get("away_team")
+        point = p.get("point")
+        point_s = f"{point:+g}" if point is not None else ""
+        return _html.escape(f"{team or selection} {point_s}".strip())
+    point = p.get("point")
+    point_s = f"{point:g}" if point is not None else "?"
+    return _html.escape(f"{selection} {point_s}")
+
+
 def _prop_card_html(p: dict) -> str:
     t        = _tier(p["recommendation"])
     lbl      = _rec_label(p["recommendation"])
@@ -692,8 +720,10 @@ def _prop_card_html(p: dict) -> str:
 def _game_card_html(p: dict) -> str:
     t        = _tier(p["recommendation"])
     lbl      = _rec_label(p["recommendation"])
+    edge_only = _is_edge_only_game_market(p)
     score    = p["signal_score"] or 0
-    bar_pct  = min(score, 100)
+    bar_pct  = min(score, 100) if not edge_only else min(max((p.get("edge") or 0) / 0.04 * 100, 0), 100)
+    score_html = "Edge only" if edge_only else f"Score {score}"
     if t == "elite":
         bar_grad = "linear-gradient(90deg,#4f46e5,#818cf8)"
         edge_col = "#818cf8"
@@ -706,8 +736,8 @@ def _game_card_html(p: dict) -> str:
 
     away      = _html.escape(str(p.get("away_team") or "?"))
     home      = _html.escape(str(p.get("home_team") or "?"))
-    sel       = _html.escape(str(p["selection"]))
-    point_s   = f"{p['point']:g}" if p["point"] is not None else "?"
+    market_s  = _html.escape(_game_market_label(p))
+    pick_s    = _game_selection_label(p)
     price_s   = f"{p['bovada_price']:+d}" if p["bovada_price"] is not None else "—"
     edge_s    = f"{(p['edge'] or 0):.1%}"
     books_s   = str(p.get("consensus_book_count") or "?")
@@ -728,22 +758,22 @@ def _game_card_html(p: dict) -> str:
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
     <div>
       <div style="font-size:16px;font-weight:600;color:#f1f5f9">{away} @ {home}</div>
-      <div style="font-size:12px;color:#64748b;margin-top:2px">Game Total</div>
+      <div style="font-size:12px;color:#64748b;margin-top:2px">{market_s}</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
       <span class="badge {t}">{lbl}</span>{bet_badge}{res_html}
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
-    <span style="background:#252a38;color:#94a3b8;font-size:12px;border-radius:4px;padding:3px 9px">Game Total</span>
-    <span style="font-size:15px;font-weight:600;color:#e2e8f0">{sel} {point_s}</span>
+    <span style="background:#252a38;color:#94a3b8;font-size:12px;border-radius:4px;padding:3px 9px">{market_s}</span>
+    <span style="font-size:15px;font-weight:600;color:#e2e8f0">{pick_s}</span>
     <span style="background:#1e2330;color:#94a3b8;font-size:13px;border-radius:4px;padding:3px 9px;border:1px solid #2a3044">{price_s}</span>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
     <div style="flex:1;background:#252a38;border-radius:99px;height:4px">
       <div style="background:{bar_grad};width:{bar_pct}%;height:4px;border-radius:99px"></div>
     </div>
-    <span style="font-size:12px;color:#64748b;min-width:52px;white-space:nowrap">Score {score}</span>
+    <span style="font-size:12px;color:#64748b;min-width:52px;white-space:nowrap">{score_html}</span>
   </div>
   <div style="display:flex;gap:20px;flex-wrap:wrap">
     <div>
@@ -874,7 +904,7 @@ def _game_track_strip(conn, p: dict) -> None:
 def _render_game_picks(conn, picks: list, show_all: bool, min_score: int,
                        matchup_filter: list | None = None) -> None:
     if not picks:
-        st.info("No game total picks for this date. Run the pipeline first.")
+        st.info("No game market picks for this date. Run the pipeline first.")
         return
 
     def _passes(p):
@@ -885,7 +915,11 @@ def _render_game_picks(conn, picks: list, show_all: bool, min_score: int,
             return False
         if p["bovada_price"] is None or not (BET_PRICE_MIN <= p["bovada_price"] <= BET_PRICE_MAX):
             return False
-        if p["signal_score"] is not None and p["signal_score"] < min_score:
+        if (
+            not _is_edge_only_game_market(p)
+            and p["signal_score"] is not None
+            and p["signal_score"] < min_score
+        ):
             return False
         if matchup_filter:
             label = f"{p.get('away_team','?')} @ {p.get('home_team','?')}"
