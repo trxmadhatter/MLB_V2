@@ -11,13 +11,34 @@ The 10AM task runs `run_morning.bat` which:
 
 Do NOT run steps individually unless debugging. Use `run_morning.bat` to match what the scheduler does.
 
-## Manual run steps (if needed)
+## ⚠️ Low-quota manual run (use when Odds API credits are limited)
+
+Do NOT use `run_morning.bat` — it can retry and spend credits twice.
+Run these three steps manually, stop if step 1 fails:
+
+```
+python run_daily.py
+```
+- If it succeeds → continue to step 2
+- If it fails → STOP. Do not retry. Diagnose from `data/daily_log.txt` tail. Do not run another pull.
+
+```
+python send_picks_email.py
+```
+
+```
+call push_status.bat
+```
+
+One pull only. No retries.
+
+## Normal manual run steps
 
 1. **Check if already ran today**
    - Query `daily_picks` for today's date — if rows exist, skip `run_daily.py`
    - Or just run `run_morning.bat` — it handles everything
 
-2. **Run manually**
+2. **Run manually (normal quota)**
    ```
    cmd /c C:\Users\jesse\MLB_V2\run_morning.bat
    ```
