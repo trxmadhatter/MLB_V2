@@ -393,8 +393,12 @@ def run_backtest_from_db(
             print(f"  {date_str}: already processed, skipping")
             continue
 
+        next_date = (
+            datetime.strptime(date_str, "%Y-%m-%d") + timedelta(days=1)
+        ).strftime("%Y-%m-%d")
         snapshot_rows = [dict(r) for r in live_conn.execute(
-            "SELECT * FROM props_snapshots WHERE DATE(pulled_at) = ?", (date_str,)
+            "SELECT * FROM props_snapshots WHERE pulled_at >= ? AND pulled_at < ?",
+            (f"{date_str}T00:00:00Z", f"{next_date}T00:00:00Z"),
         ).fetchall()]
 
         if not snapshot_rows:
