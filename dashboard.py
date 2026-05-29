@@ -1517,7 +1517,14 @@ def _render_game_picks(conn, picks: list, show_all: bool, min_score: int,
                 return False
         return True
 
-    visible = [p for p in picks if _passes(p)]
+    _G_ORDER = {"A_BET": 0, "RECOMMENDED": 0, "B_BET": 1, "LEAN": 1, "WATCH": 2, "NO_BET": 2, "PASS": 3}
+    visible = sorted(
+        [p for p in picks if _passes(p)],
+        key=lambda p: (
+            _G_ORDER.get(normalize_recommendation(p.get("recommendation", "")), 3),
+            str(p.get("commence_time") or ""),
+        ),
+    )
 
     # Keep only best side per game — but always keep bet_placed picks even if lower edge
     _seen_game: dict = {}
@@ -1569,10 +1576,8 @@ def _render_today(conn, today: str) -> None:
 
     _REC_ORDER = {"A_BET": 0, "RECOMMENDED": 0, "B_BET": 1, "LEAN": 1, "WATCH": 2, "NO_BET": 2, "PASS": 3}
     picks = sorted(picks, key=lambda p: (
-        _REC_ORDER.get(p["recommendation"], 2),
-        -(p["sim_prob"] or 0),
-        -(p["signal_score"] or 0),
-        -p["edge"],
+        _REC_ORDER.get(normalize_recommendation(p.get("recommendation", "")), 3),
+        str(p.get("commence_time") or ""),
     ))
 
     game_picks_all = get_today_game_picks(conn, today)
