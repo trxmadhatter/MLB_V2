@@ -19,6 +19,8 @@ from db import (
     mark_bet_skipped,
     mark_game_bet_placed,
     mark_game_bet_skipped,
+    untrack_bet,
+    untrack_game_bet,
     get_today_picks,
     get_active_bets,
     get_roi_by_market,
@@ -43,6 +45,20 @@ MARKET_LABELS = {
     "batter_runs_scored":   "Runs Scored",
     "batter_stolen_bases":  "Stolen Bases",
     "batter_walks":         "Walks",
+}
+
+MKT_SHORT: dict[str, str] = {
+    "pitcher_strikeouts":   "K",
+    "pitcher_hits_allowed": "H+",
+    "pitcher_outs":         "PO",
+    "batter_hits":          "H",
+    "batter_total_bases":   "TB",
+    "batter_home_runs":     "HR",
+    "batter_rbis":          "RBI",
+    "batter_runs_scored":   "RS",
+    "totals":               "TOT",
+    "h2h":                  "ML",
+    "spreads":              "RL",
 }
 
 TEAM_NAMES = {
@@ -492,209 +508,205 @@ def _daily_summary_html(prop_picks: list, game_picks: list) -> str:
 
 CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap');
 
 * { box-sizing: border-box; }
 
+/* ─── App chrome ─── */
 [data-testid="stAppViewContainer"],
-[data-testid="stHeader"] {
-    background: #13151a !important;
-}
+[data-testid="stHeader"] { background: #0f1117 !important; }
 [data-testid="block-container"] { background: transparent !important; }
-
 section[data-testid="stSidebar"] {
-    background: #0e1117;
-    border-right: 1px solid #252a38;
+    background: #0c0f14; border-right: 1px solid #1f4d39;
 }
 
-/* Tabs */
+/* ─── Tabs ─── */
 .stTabs [data-baseweb="tab-list"] {
-    background: #1a1d27; border-radius: 6px; padding: 4px;
-    border: 1px solid #252a38; gap: 2px;
+    background: #0c1810; border-radius: 5px; padding: 3px;
+    border: 1px solid #1f4d39; gap: 2px;
 }
 .stTabs [data-baseweb="tab"] {
-    color: #64748b; border-radius: 4px;
-    font-family: 'Inter', -apple-system, sans-serif;
-    font-size: 13px; font-weight: 500; letter-spacing: 0.3px;
-    padding: 6px 18px;
+    color: #4a6355; border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px; font-weight: 600; letter-spacing: 0.4px;
+    padding: 6px 16px;
 }
 .stTabs [data-baseweb="tab"][aria-selected="true"] {
-    background: #252a38 !important; color: #e2e8f0 !important;
+    background: #1f4d39 !important; color: #f4ecd8 !important;
 }
 
-/* Typography */
+/* ─── Global text ─── */
 h1, h2, h3, h4 {
-    color: #f1f5f9 !important;
-    font-family: 'Inter', -apple-system, sans-serif !important;
-    font-weight: 600 !important;
+    color: #f4ecd8 !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-weight: 700 !important;
 }
-p, label, .stMarkdown { color: #94a3b8 !important; }
-hr { border-color: #252a38 !important; }
+p, label, .stMarkdown { color: #9bb8a5 !important; }
+hr { border-color: #1f4d39 !important; }
 
-/* Stat boxes */
+/* ─── Stat boxes ─── */
 .stat-box {
-    background: #1e2330;
-    border: 1px solid #2a3044;
-    border-radius: 8px;
-    padding: 14px 12px;
-    text-align: center;
-    margin: 4px 0;
+    background: #0c1810; border: 1px solid #1f4d39;
+    border-radius: 5px; padding: 12px 10px; text-align: center; margin: 4px 0;
 }
 .stat-value {
-    font-size: 22px; font-weight: 700; color: #f1f5f9;
-    line-height: 1.2;
-    font-family: 'Inter', -apple-system, sans-serif;
+    font-size: 20px; font-weight: 700; color: #f4ecd8; line-height: 1.2;
+    font-family: 'IBM Plex Mono', monospace; font-feature-settings: 'tnum';
 }
 .stat-label {
-    font-size: 10px; color: #64748b;
+    font-size: 10px; color: #4a6355;
     text-transform: uppercase; letter-spacing: 1.5px; margin-top: 3px;
+    font-family: 'IBM Plex Mono', monospace;
 }
 
-/* Day header */
+/* ─── Day header ─── */
 .day-header {
     display: flex; justify-content: space-between; align-items: center;
-    background: #1e2330; border-radius: 8px;
-    padding: 12px 18px; margin-bottom: 14px;
-    border: 1px solid #2a3044;
+    background: #0c1810; border-radius: 5px; padding: 10px 16px; margin-bottom: 12px;
+    border: 1px solid #1f4d39; font-family: 'IBM Plex Mono', monospace;
 }
-.day-header .dh-lbl { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 1.5px; }
-.day-header .dh-val { font-size: 15px; font-weight: 600; color: #f1f5f9; margin-top: 2px; }
+.day-header .dh-lbl { font-size: 10px; color: #4a6355; text-transform: uppercase; letter-spacing: 1.5px; }
+.day-header .dh-val { font-size: 14px; font-weight: 700; color: #f4ecd8; margin-top: 2px; font-feature-settings: 'tnum'; }
 .day-header .dh-stat { text-align: right; }
 
-/* Section labels */
+/* ─── Section labels ─── */
 .section-label {
-    font-size: 10px; color: #475569; text-transform: uppercase; letter-spacing: 2px;
-    margin: 16px 0 8px; padding-bottom: 6px;
-    border-bottom: 1px solid #1e2330;
+    font-size: 10px; color: #4a6355; text-transform: uppercase; letter-spacing: 2px;
+    margin: 14px 0 6px; padding-bottom: 5px; border-bottom: 1px solid #0c1810;
+    font-family: 'IBM Plex Mono', monospace;
 }
 
-/* Pick cards */
+/* ════════════════════════════════════
+   PICK CARDS — Green Monster scoreboard
+   ════════════════════════════════════ */
 .pick {
-    background: linear-gradient(180deg, #1b1f2a 0%, #171a23 100%);
-    border: 1px solid #283044;
-    border-radius: 10px;
-    padding: 14px;
-    margin: 0 0 10px 0;
-    min-height: 230px;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+    background: #103024; border: 1px solid #1f4d39;
+    border-radius: 5px; padding: 0; margin: 0 0 10px 0;
+    overflow: hidden;
+    font-family: 'IBM Plex Mono', monospace;
+    font-feature-settings: 'tnum';
 }
-.pick.elite  { border-top: 2px solid #6366f1; }
-.pick.good   { border-top: 2px solid #f59e0b; }
-.pick.watch  { border-top: 2px solid #0ea5e9; }
-.pick.pass   { border-top: 2px solid #475569; }
-.pick.game  { background: linear-gradient(180deg, #1a1e29 0%, #161922 100%); border-left: 3px solid #2a3044; }
-.pick-head {
-    display:flex; justify-content:space-between; align-items:flex-start;
-    gap:12px; margin-bottom:10px;
-}
-.pick-name {
-    font-size:14px; font-weight:700; color:#f1f5f9; line-height:1.2; letter-spacing:0.1px;
-}
-.pick-team {
-    font-size:13px; color:#64748b; margin-top:3px;
-}
-.pick-meta {
-    display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;
-}
-.pick-pill {
-    background:#252a38; color:#94a3b8; font-size:13px;
-    border-radius:4px; padding:3px 9px;
-}
-.pick-line {
-    font-size:13px; font-weight:700; color:#e2e8f0;
-}
-.pick-price {
-    background:#10141d; color:#cbd5e1; font-size:13px;
-    border-radius:4px; padding:3px 9px; border:1px solid #2a3044;
-}
-.lights-grid {
-    display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin-top:10px;
-}
-.light-box {
-    border-radius:7px; padding:7px 8px; min-height:58px;
-    display:flex; flex-direction:column; justify-content:center;
-}
-.light-top {
-    display:flex; align-items:center; gap:5px; margin-bottom:3px; min-width:0;
-}
-.light-dot {
-    width:8px; height:8px; border-radius:50%; flex-shrink:0;
-}
-.light-label {
-    font-size:9px; color:#64748b; text-transform:uppercase;
-    letter-spacing:0.7px; font-weight:700; white-space:nowrap;
-}
-.light-reason {
-    font-size:12px; font-weight:600; line-height:1.25;
-    overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
-}
-.decision-row {
-    display:flex; gap:8px; align-items:center; flex-wrap:wrap;
-    border-top:1px solid #252a38; margin-top:10px; padding-top:9px;
-}
-.decision-why {
-    color:#94a3b8; font-size:13px; line-height:1.4; flex:1; min-width:180px;
-}
-@media (max-width: 700px) {
-    .lights-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
-    .pick { min-height: 0; }
-}
+.pick.elite { border-top: 3px solid #7ed957; }
+.pick.good  { border-top: 3px solid #7ed957; }
+.pick.watch { border-top: 3px solid #ffd23f; }
+.pick.pass  { border-top: 3px solid #2d4a38; }
+.pick.game  { background: #0f2b1f; }
+.pick.tracked { border: 1px solid #2f7d52 !important; border-top: 5px solid #f4ecd8 !important; }
 
-/* Badges */
-.badge {
-    font-size: 11px; font-weight: 700; border-radius: 20px;
-    padding: 3px 12px; letter-spacing: 0.8px; text-transform: uppercase;
-    display: inline-block; white-space: nowrap;
-}
-.badge.elite { background: #1e1f3a; color: #818cf8; border: 1px solid #3730a3; }
-.badge.good  { background: #1f1a0a; color: #fbbf24; border: 1px solid #78350f; }
-.badge.watch { background: #0c1a24; color: #38bdf8; border: 1px solid #0369a1; }
-.badge.pass  { background: #161a24; color: #64748b; border: 1px solid #334155; }
+/* Band 1 — Header */
+.ph { display: flex; justify-content: space-between; align-items: flex-start; padding: 13px 16px 10px; border-bottom: 1px solid #1f4d39; gap: 10px; }
+.ph-left { flex: 1; min-width: 0; }
+.ph-name { font-size: 18px; font-weight: 700; color: #f4ecd8; line-height: 1.15; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ph-sub  { font-size: 12px; color: #9bb8a5; margin-top: 4px; }
+.ph-right { text-align: right; flex-shrink: 0; }
+.ph-line  { font-size: 22px; font-weight: 700; color: #ffd23f; line-height: 1; }
+.ph-odds  { font-size: 13px; color: #9bb8a5; margin-top: 3px; }
+.ph-badges { display: flex; gap: 5px; margin-top: 5px; justify-content: flex-end; flex-wrap: wrap; }
+
+/* Band 2 — Verdict bar */
+.vbar { display: flex; align-items: center; gap: 9px; padding: 7px 16px; background: #0c261c; border-bottom: 1px solid #1f4d39; flex-wrap: wrap; }
+.vtag { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 3px 8px; border-radius: 2px; white-space: nowrap; flex-shrink: 0; }
+.vtag.elite { background: #7ed957; color: #0c261c; }
+.vtag.good  { background: transparent; color: #7ed957; border: 1px solid #7ed957; }
+.vtag.watch { background: transparent; color: #ffd23f; border: 1px solid #ffd23f; }
+.vtag.pass  { background: transparent; color: #4a6355; border: 1px solid #2d4a38; }
+.vtext { font-size: 12px; color: #b9d2c4; line-height: 1.4; flex: 1; min-width: 150px; }
+
+/* Band 3 — Line-score strip */
+.lsc { display: grid; grid-template-columns: repeat(6, 1fr); border-bottom: 1px solid #1f4d39; }
+.lsc-cell { background: #0c261c; padding: 7px 3px; text-align: center; border-right: 1px solid #1f4d39; }
+.lsc-cell:last-child { border-right: none; }
+.lsc-lbl { font-size: 9px; color: #6b8c7a; text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 3px; }
+.lsc-val { font-size: 18px; font-weight: 700; color: #f4ecd8; line-height: 1; font-feature-settings: 'tnum'; }
+.lsc-val.pos   { color: #7ed957; }
+.lsc-val.gold  { color: #ffd23f; }
+.lsc-val.neg   { color: #ec7a7a; }
+.lsc-val.muted { color: #2d4a38; }
+
+/* Band 4 — Status lamps */
+.lamps { display: flex; gap: 16px; align-items: center; padding: 7px 16px; border-bottom: 1px solid #1f4d39; }
+.lamp-item { display: flex; align-items: center; gap: 5px; }
+.lamp { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.lamp.green  { background: #7ed957; box-shadow: 0 0 6px 2px rgba(126,217,87,0.45); }
+.lamp.yellow { background: #ffd23f; box-shadow: 0 0 5px 2px rgba(255,210,63,0.38); }
+.lamp.red    { background: #ec7a7a; box-shadow: 0 0 5px 2px rgba(236,122,122,0.35); }
+.lamp.gray   { background: #1f4d39; }
+.lamp-lbl    { font-size: 11px; color: #9bb8a5; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Tracking pill (inside card header when tracked) */
+.trk-pill { display: inline-flex; align-items: center; gap: 5px; background: #f4ecd8; color: #103024; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 2px; letter-spacing: 0.3px; white-space: nowrap; }
+.trk-dot  { width: 6px; height: 6px; border-radius: 50%; background: #2f7d52; flex-shrink: 0; }
 
 /* Result pills */
-.r-win  { background:#0f2518;color:#34d399;border:1px solid #065f46;border-radius:20px;font-size:11px;font-weight:700;padding:3px 10px;display:inline-block; }
-.r-loss { background:#1f0e0e;color:#f87171;border:1px solid #7f1d1d;border-radius:20px;font-size:11px;font-weight:700;padding:3px 10px;display:inline-block; }
-.r-push { background:#1a1a3a;color:#a5b4fc;border:1px solid #3730a3;border-radius:20px;font-size:11px;font-weight:700;padding:3px 10px;display:inline-block; }
+.r-win  { background:#0a1f10; color:#7ed957; border:1px solid #2f7d52; border-radius:2px; font-size:11px; font-weight:700; padding:2px 8px; display:inline-block; font-family:'IBM Plex Mono',monospace; }
+.r-loss { background:#1f0e0e; color:#ec7a7a; border:1px solid #7f1d1d; border-radius:2px; font-size:11px; font-weight:700; padding:2px 8px; display:inline-block; font-family:'IBM Plex Mono',monospace; }
+.r-push { background:#1a1505; color:#ffd23f; border:1px solid #78350f; border-radius:2px; font-size:11px; font-weight:700; padding:2px 8px; display:inline-block; font-family:'IBM Plex Mono',monospace; }
 
-/* Buttons */
+/* Badges (history, summary) */
+.badge { font-size: 11px; font-weight: 700; border-radius: 2px; padding: 2px 8px; letter-spacing: 0.8px; text-transform: uppercase; display: inline-block; white-space: nowrap; font-family: 'IBM Plex Mono', monospace; }
+.badge.elite { background: #7ed957; color: #0c261c; }
+.badge.good  { background: transparent; color: #7ed957; border: 1px solid #7ed957; }
+.badge.watch { background: transparent; color: #ffd23f; border: 1px solid #ffd23f; }
+.badge.pass  { background: transparent; color: #4a6355; border: 1px solid #2d4a38; }
+
+/* Tracking button (◆ TRACK) */
+.track-btn-wrap > div.stButton > button {
+    background: transparent !important; color: #ffd23f !important;
+    border: 2px dashed #ffd23f !important; border-radius: 4px !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 13px !important; font-weight: 700 !important;
+    letter-spacing: 0.8px !important; padding: 6px 16px !important;
+    min-height: 40px !important;
+}
+.track-btn-wrap > div.stButton > button:hover {
+    background: #0d2119 !important; border-color: #f4ecd8 !important; color: #f4ecd8 !important;
+}
+.release-btn-wrap > div.stButton > button {
+    background: transparent !important; color: #4a6355 !important;
+    border: 1px solid #1f4d39 !important; border-radius: 3px !important;
+    font-family: 'IBM Plex Mono', monospace !important; font-size: 12px !important; font-weight: 600 !important;
+}
+.unit-disp { text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 700; color: #ffd23f; padding: 7px 0; font-feature-settings: 'tnum'; }
+.track-note { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #2d4a38; padding: 5px 0; }
+
+/* Stepper buttons (−/+) */
+.step-btn > div.stButton > button {
+    background: #0c261c !important; color: #9bb8a5 !important;
+    border: 1px solid #1f4d39 !important; border-radius: 3px !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 16px !important; font-weight: 700 !important;
+    padding: 4px 10px !important; min-height: 36px !important;
+}
+.step-btn > div.stButton > button:hover {
+    background: #0d2119 !important; color: #ffd23f !important; border-color: #ffd23f !important;
+}
+
+/* Buttons (global default) */
 div.stButton > button {
-    background: #1e2330; color: #94a3b8;
-    border: 1px solid #2a3044; border-radius: 6px;
-    font-family: 'Inter', -apple-system, sans-serif;
-    font-size: 13px; font-weight: 600;
+    background: #0c261c; color: #9bb8a5; border: 1px solid #1f4d39; border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600;
 }
 div.stButton > button:hover {
-    border-color: #6366f1 !important; color: #818cf8 !important;
-    background: #1e1f3a !important;
+    border-color: #ffd23f !important; color: #ffd23f !important; background: #0d2119 !important;
 }
 
 /* Expanders */
-[data-testid="stExpander"] {
-    background: #191c26 !important;
-    border: 1px solid #1e2330 !important;
-    border-radius: 6px !important;
-    margin-bottom: 4px !important;
-}
-[data-testid="stExpander"] summary {
-    color: #475569 !important;
-    font-size: 12px !important;
-    font-weight: 500 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.8px !important;
-}
+[data-testid="stExpander"] { background: #0c1810 !important; border: 1px solid #1f4d39 !important; border-radius: 4px !important; margin-bottom: 4px !important; }
+[data-testid="stExpander"] summary { color: #4a6355 !important; font-size: 12px !important; font-weight: 600 !important; text-transform: uppercase !important; letter-spacing: 0.8px !important; font-family: 'IBM Plex Mono', monospace !important; }
 
 /* Number input */
-[data-testid="stNumberInput"] input {
-    background: #1e2330 !important;
-    border: 1px solid #2a3044 !important;
-    color: #e2e8f0 !important;
-    border-radius: 6px !important;
-    font-size: 13px !important;
-    font-weight: 600 !important;
-}
+[data-testid="stNumberInput"] input { background: #0c261c !important; border: 1px solid #1f4d39 !important; color: #ffd23f !important; border-radius: 3px !important; font-size: 14px !important; font-weight: 700 !important; font-family: 'IBM Plex Mono', monospace !important; font-feature-settings: 'tnum' !important; }
 
 /* DataFrame */
-[data-testid="stDataFrame"] { background: #1a1d27 !important; }
+[data-testid="stDataFrame"] { background: #0c1810 !important; }
+
+/* Responsive */
+@media (max-width: 700px) {
+    .lsc { grid-template-columns: repeat(3, 1fr); }
+    .ph-name { font-size: 15px; }
+    .ph-line  { font-size: 18px; }
+    .lsc-val  { font-size: 15px; }
+}
 </style>
 """
 
@@ -1140,6 +1152,55 @@ def _time_sort_key(p: dict) -> tuple:
     return (commence, str(p.get("player_name") or ""), str(p.get("market_key") or ""))
 
 
+def _verdict_sentence(p: dict) -> str:
+    """One plain-English sentence explaining the shadow call."""
+    from edge import required_edge_for_price as _req
+    from config import MARKET_EDGE_MIN
+    tier  = str(p.get("_shadow_label") or _rec_label(p.get("recommendation", ""))).upper()
+    edge  = p.get("edge") or 0
+    score = p.get("signal_score")
+    pc    = p.get("_price_color", "gray")
+    mc    = p.get("_sim_color",   "gray")
+    sr    = p.get("_sim_result") or {}
+    sim   = sr.get("sim_prob") or p.get("sim_prob")
+    bev   = p.get("bovada_break_even_prob")
+    mkt   = p.get("market_key", "")
+    sel   = p.get("selection",  "")
+    pv    = p.get("bovada_price")
+    req   = max(MARKET_EDGE_MIN.get((mkt, sel), 0.0), (_req(pv) if pv else 0.03))
+
+    if tier == "ELITE":
+        parts = ([f"score {score}"] if score else []) + [f"edge {edge:.1%}"]
+        if sim and bev:
+            parts.append(f"sim {sim:.0%} > {bev:.0%} BEV")
+        return "All green — " + ", ".join(parts) + "."
+
+    if tier == "GOOD":
+        parts = ([f"score {score}"] if score else []) + [f"edge {edge:.1%}"]
+        if sim and bev:
+            parts.append("sim clears BEV" if sim >= bev else "sim close to BEV")
+        return "Solid — " + ", ".join(parts) + "."
+
+    if tier == "WATCH":
+        if pc == "yellow":
+            return f"Setup OK (score {score}), but edge {edge:.1%} < {req:.0%} min."
+        if mc == "gray":
+            reason = sr.get("reason", "missing")
+            return f"Edge {edge:.1%}, score {score}. Sim {reason}."
+        if mc == "red" and sim and bev:
+            return f"Sim {sim:.0%} vs {bev:.0%} BEV — below break-even. Edge {edge:.1%}."
+        return f"Score {score}, edge {edge:.1%}. One signal not green."
+
+    if pc == "red":
+        if edge < 0:
+            pv_s = f"{pv:+d}" if pv else ""
+            return f"Negative edge {edge:.1%} at {pv_s}. No value."
+        if pv and not (-140 <= pv <= 150):
+            return f"Juice {pv:+d} exceeds ±140 limit. Price not playable."
+        return f"Edge {edge:.1%} below {req:.0%} threshold."
+    return "Did not clear required gates."
+
+
 def _prop_card_html(p: dict) -> str:
     t     = _tier(p["recommendation"])
 
@@ -1155,30 +1216,76 @@ def _prop_card_html(p: dict) -> str:
     sel       = _html.escape(str(p["selection"]))
     point_s   = f"{p['point']:g}" if p["point"] is not None else "?"
     price_s   = f"{p['bovada_price']:+d}" if p["bovada_price"] is not None else "—"
-    res_html  = _result_html(p)
-    bet_badge = _bet_badge_html(p)
-    decision_badge = _decision_badge_html(p)
-    decision_why = _html.escape(_decision_why(p))
-    tracked_style = "border-left:3px solid #34d399;background:#0d1812;" if p.get("bet_placed") == 1 else ""
+    # ── linescore values ──────────────────────────────────────────────────
+    edge     = p.get("edge") or 0
+    ev       = p.get("ev") or 0
+    score    = p.get("signal_score")
+    books    = p.get("consensus_book_count")
+    sr       = p.get("_sim_result") or {}
+    sim      = sr.get("sim_prob") or p.get("sim_prob")
+    bev      = p.get("bovada_break_even_prob")
+
+    edge_s   = f"{edge:.1%}"
+    edge_cls = "pos" if edge >= 0.04 else ("gold" if edge > 0 else ("neg" if edge < 0 else "muted"))
+    ev_s     = f"{ev:+.1%}"
+    ev_cls   = "pos" if ev > 0.02 else ("neg" if ev < 0 else "muted")
+    books_s  = str(books or "—")
+    score_s  = str(score) if score is not None else "—"
+    score_cls = "pos" if (score or 0) >= 65 else ("gold" if (score or 0) >= 50 else "muted")
+    if sim is not None and bev is not None:
+        sim_s   = f"{sim:.0%}"
+        sim_cls = "pos" if sim >= bev + 0.02 else ("gold" if sim >= bev - 0.02 else "neg")
+    else:
+        sim_s, sim_cls = "—", "muted"
+    mkt_s = _html.escape(MKT_SHORT.get(p.get("market_key", ""), p.get("market_key", "")[:3].upper()))
+
+    # ── lamps ─────────────────────────────────────────────────────────────
+    setup_c = p.get("_setup_color", "gray")
+    price_c = p.get("_price_color", "gray")
+    sim_c   = p.get("_sim_color",   "gray")
+
+    # ── verdict ───────────────────────────────────────────────────────────
+    v_label = str(p.get("_shadow_label") or _rec_label(p.get("recommendation", ""))).upper()
+    v_text  = _html.escape(_verdict_sentence(p))
+
+    # ── tracking pill (shown inside header when tracked) ──────────────────
+    tracked = p.get("bet_placed") == 1
+    trk_pill = ""
+    if tracked:
+        u = p.get("units_wagered")
+        u_s = f"{u:g}" if isinstance(u, (int, float)) else str(u or "?")
+        trk_pill = (
+            f'<span class="trk-pill"><span class="trk-dot"></span>TRACKING {u_s}u</span>'
+        )
+    tc = "tracked" if tracked else ""
+    res_html = _result_html(p)
 
     return f"""
-<div class="pick {t}" style="{tracked_style}">
-  <div>
-      <div class="pick-head">
-        <div>
-          <div class="pick-name">{p_name}</div>
-          <div class="pick-team">{team}</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">{bet_badge}{res_html}</div>
-      </div>
-      <div class="pick-meta">
-        <span class="pick-pill">{mkt}</span>
-        <span class="pick-line">{sel} {point_s}</span>
-        <span class="pick-price">{price_s}</span>
-      </div>
-      {chips_html}
-      {p.get("_lights_html", "")}
-      <div class="decision-row">{decision_badge}<div class="decision-why">{decision_why}</div></div>
+<div class="pick {t} {tc}">
+  <div class="ph">
+    <div class="ph-left">
+      <div class="ph-name">{trk_pill}{p_name}</div>
+      <div class="ph-sub">{team} &middot; {mkt}</div>
+    </div>
+    <div class="ph-right">
+      <div class="ph-line">{sel} {point_s}</div>
+      <div class="ph-odds">{price_s}</div>
+      <div class="ph-badges">{res_html}</div>
+    </div>
+  </div>
+  <div class="vbar"><span class="vtag {t}">{v_label}</span><span class="vtext">{v_text}</span></div>
+  <div class="lsc">
+    <div class="lsc-cell"><div class="lsc-lbl">EDGE</div><div class="lsc-val {edge_cls}">{edge_s}</div></div>
+    <div class="lsc-cell"><div class="lsc-lbl">EV</div><div class="lsc-val {ev_cls}">{ev_s}</div></div>
+    <div class="lsc-cell"><div class="lsc-lbl">BOOKS</div><div class="lsc-val">{books_s}</div></div>
+    <div class="lsc-cell"><div class="lsc-lbl">SCORE</div><div class="lsc-val {score_cls}">{score_s}</div></div>
+    <div class="lsc-cell"><div class="lsc-lbl">SIM</div><div class="lsc-val {sim_cls}">{sim_s}</div></div>
+    <div class="lsc-cell"><div class="lsc-lbl">MKT</div><div class="lsc-val muted">{mkt_s}</div></div>
+  </div>
+  <div class="lamps">
+    <div class="lamp-item"><span class="lamp {setup_c}"></span><span class="lamp-lbl">Setup</span></div>
+    <div class="lamp-item"><span class="lamp {price_c}"></span><span class="lamp-lbl">Price</span></div>
+    <div class="lamp-item"><span class="lamp {sim_c}"></span><span class="lamp-lbl">Sim</span></div>
   </div>
 </div>"""
 
@@ -1187,167 +1294,194 @@ def _game_card_html(p: dict) -> str:
     t         = _tier(p["recommendation"])
     edge_only = _is_edge_only_game_market(p)
 
-    if edge_only:
-        chips_html  = ""
-    else:
-        try:
-            breakdown = json.loads(p.get("signal_breakdown") or "[]")
-        except Exception:
-            breakdown = []
-        chips_html = _breakdown_chips_html(breakdown)
+    away     = _html.escape(str(p.get("away_team") or "?"))
+    home     = _html.escape(str(p.get("home_team") or "?"))
+    market_s = _html.escape(_game_market_label(p))
+    pick_s   = _game_selection_label(p)
+    price_s  = f"{p['bovada_price']:+d}" if p["bovada_price"] is not None else "—"
 
-    away      = _html.escape(str(p.get("away_team") or "?"))
-    home      = _html.escape(str(p.get("home_team") or "?"))
-    market_s  = _html.escape(_game_market_label(p))
-    pick_s    = _game_selection_label(p)
-    price_s   = f"{p['bovada_price']:+d}" if p["bovada_price"] is not None else "—"
-    res_html  = _result_html(p)
-    bet_badge = _bet_badge_html(p)
-    decision_badge = _decision_badge_html(p)
-    decision_why = _html.escape(_decision_why(p))
-    tracked_style = "border-left:3px solid #34d399;background:#0d1812;" if p.get("bet_placed") == 1 else ""
+    # ── linescore ─────────────────────────────────────────────────────────
+    edge     = p.get("edge") or 0
+    books    = p.get("consensus_book_count")
+    score    = p.get("signal_score")
+    sr       = p.get("_sim_result") or {}
+    sim      = sr.get("sim_prob") or p.get("sim_prob")
+    bev      = p.get("bovada_break_even_prob")
+
+    edge_s   = f"{edge:.1%}"
+    edge_cls = "pos" if edge >= 0.04 else ("gold" if edge > 0 else ("neg" if edge < 0 else "muted"))
+    books_s  = str(books or "—")
+    score_s  = ("—" if edge_only else (str(score) if score is not None else "—"))
+    score_cls = "muted" if edge_only else ("pos" if (score or 0) >= 65 else ("gold" if (score or 0) >= 50 else "muted"))
+    if sim is not None and bev is not None:
+        sim_s, sim_cls = f"{sim:.0%}", ("pos" if sim >= bev + 0.02 else ("gold" if sim >= bev - 0.02 else "neg"))
+    else:
+        sim_s, sim_cls = "—", "muted"
+    mkt_abbr = _html.escape(MKT_SHORT.get(p.get("market_key", ""), p.get("market_key", "")[:3].upper()))
+
+    # ── lamps ─────────────────────────────────────────────────────────────
+    setup_c = "gray" if edge_only else p.get("_setup_color", "gray")
+    price_c = p.get("_price_color", "gray")
+    sim_c   = p.get("_sim_color",   "gray")
+
+    # ── verdict ───────────────────────────────────────────────────────────
+    v_label = str(p.get("_shadow_label") or _rec_label(p.get("recommendation", ""))).upper()
+    v_text  = _html.escape(_verdict_sentence(p))
+
+    # ── tracking ──────────────────────────────────────────────────────────
+    tracked  = p.get("bet_placed") == 1
+    trk_pill = ""
+    if tracked:
+        u = p.get("units_wagered")
+        u_s = f"{u:g}" if isinstance(u, (int, float)) else str(u or "?")
+        trk_pill = (
+            f'<span class="trk-pill"><span class="trk-dot"></span>TRACKING {u_s}u</span>'
+        )
+    tc       = "tracked" if tracked else ""
+    res_html = _result_html(p)
 
     actual      = p.get("actual_total")
-    actual_html = ""
+    actual_note = ""
     if actual is not None and (p.get("result") or "PENDING") != "PENDING":
-        actual_html = (
-            f'<div style="font-size:11px;color:#64748b;margin-top:4px">'
-            f'Actual: <span style="color:#94a3b8">{actual:g} runs</span></div>'
+        actual_note = (
+            f'<div style="font-size:11px;color:#4a6355;padding:4px 16px 0;'
+            f'font-family:\'IBM Plex Mono\',monospace">'
+            f'Actual: <span style="color:#9bb8a5">{actual:g} runs</span></div>'
         )
 
     return f"""
-<div class="pick {t} game" style="{tracked_style}">
-  <div>
-      <div class="pick-head">
-        <div>
-          <div class="pick-name">{away} @ {home}</div>
-          <div class="pick-team">{market_s}</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">{bet_badge}{res_html}</div>
-      </div>
-      <div class="pick-meta">
-        <span class="pick-pill">{market_s}</span>
-        <span class="pick-line">{pick_s}</span>
-        <span class="pick-price">{price_s}</span>
-      </div>
-      {chips_html}{actual_html}
-      {p.get("_lights_html", "")}
-      <div class="decision-row">{decision_badge}<div class="decision-why">{decision_why}</div></div>
+<div class="pick {t} game {tc}">
+  <div class="ph">
+    <div class="ph-left">
+      <div class="ph-name">{trk_pill}{away} @ {home}</div>
+      <div class="ph-sub">{market_s}</div>
+    </div>
+    <div class="ph-right">
+      <div class="ph-line">{pick_s}</div>
+      <div class="ph-odds">{price_s}</div>
+      <div class="ph-badges">{res_html}</div>
+    </div>
   </div>
+  <div class="vbar"><span class="vtag {t}">{v_label}</span><span class="vtext">{v_text}</span></div>
+  <div class="lsc">
+    <div class="lsc-cell"><div class="lsc-lbl">EDGE</div><div class="lsc-val {edge_cls}">{edge_s}</div></div>
+    <div class="lsc-cell"><div class="lsc-lbl">BOOKS</div><div class="lsc-val">{books_s}</div></div>
+    <div class="lsc-cell"><div class="lsc-lbl">SCORE</div><div class="lsc-val {score_cls}">{score_s}</div></div>
+    <div class="lsc-cell"><div class="lsc-lbl">SIM</div><div class="lsc-val {sim_cls}">{sim_s}</div></div>
+    <div class="lsc-cell" style="grid-column:span 2"><div class="lsc-lbl">MKT</div><div class="lsc-val muted">{mkt_abbr}</div></div>
+  </div>
+  <div class="lamps">
+    <div class="lamp-item"><span class="lamp {setup_c}"></span><span class="lamp-lbl">Setup</span></div>
+    <div class="lamp-item"><span class="lamp {price_c}"></span><span class="lamp-lbl">Price</span></div>
+    <div class="lamp-item"><span class="lamp {sim_c}"></span><span class="lamp-lbl">Sim</span></div>
+  </div>
+  {actual_note}
 </div>"""
 
 
 def _track_strip(conn, p: dict, id_field: str = "id") -> None:
-    """Render unit selector + Track/Skip buttons below a card."""
+    """Baseball-base track control below a prop pick card."""
     pick_id = p[id_field]
-    score   = p.get("signal_score") or 0
     result  = p.get("result") or "PENDING"
 
+    # ── TRACKED: show release option ──────────────────────────────────────
     if p["bet_placed"] == 1:
-        units_esc = _html.escape(str(p["units_wagered"] or "?"))
-        st.markdown(
-            f'<div style="padding:6px 0 2px;font-size:12px;color:#34d399;font-weight:600">'
-            f'Tracked &nbsp;·&nbsp; {units_esc}u placed</div>',
-            unsafe_allow_html=True,
-        )
-        return
-    if p["bet_placed"] == -1:
-        st.markdown(
-            '<div style="padding:6px 0 2px;font-size:12px;color:#475569">Skipped</div>',
-            unsafe_allow_html=True,
-        )
+        c_rel, _ = st.columns([1.2, 4])
+        st.markdown('<div class="release-btn-wrap">', unsafe_allow_html=True)
+        if c_rel.button("◆ Release", key=f"rel_{pick_id}"):
+            untrack_bet(conn, pick_id)
+            conn.close()
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
         return
 
-    # Still pending — show track controls
-    if result != "PENDING":
-        # Already graded but never tracked
+    # ── SKIPPED / GRADED: static note ────────────────────────────────────
+    if p["bet_placed"] == -1 or result != "PENDING":
         st.markdown(
-            '<div style="padding:6px 0 2px;font-size:11px;color:#475569;font-style:italic">Not tracked</div>',
-            unsafe_allow_html=True,
+            '<div class="track-note">Not tracked</div>', unsafe_allow_html=True
         )
         return
 
-    rec = normalize_recommendation(p.get("recommendation", ""))
-    max_units = 1.5 if rec == "A_BET" else 1.0
-    default_units = 1.0 if rec == "A_BET" else 0.5
-    step_units = 0.5 if rec == "A_BET" else 0.25
-    u_col, b_col, s_col, _ = st.columns([1.2, 1.2, 0.9, 3])
+    # ── UNTRACKED: stepper + TRACK base ───────────────────────────────────
+    ukey = f"u_{pick_id}"
+    if ukey not in st.session_state:
+        st.session_state[ukey] = 1.0
 
-    units = u_col.number_input(
-        "Units",
-        min_value=0.25,
-        max_value=float(max_units),
-        value=default_units,
-        step=step_units,
-        key=f"u_{pick_id}",
-        label_visibility="collapsed",
-        help=f"Max {max_units:g}u for {_rec_label(p.get('recommendation', ''))}",
-    )
-    if b_col.button("Track Bet", key=f"b_{pick_id}"):
-        mark_bet_placed(conn, pick_id, units)
-        conn.close()
+    c_m, c_d, c_p, c_t, _ = st.columns([0.4, 0.55, 0.4, 1.4, 3])
+
+    st.markdown('<div class="step-btn">', unsafe_allow_html=True)
+    if c_m.button("−", key=f"m_{pick_id}"):
+        st.session_state[ukey] = max(0.5, st.session_state[ukey] - 0.5)
         st.rerun()
-    if s_col.button("Skip", key=f"s_{pick_id}"):
-        mark_bet_skipped(conn, pick_id)
-        conn.close()
-        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown(
-        '<div style="font-size:10px;color:#3a4058;margin-top:2px">Elite: max 1.5u default 1u; Good: max 1u default 0.5u</div>',
+    c_d.markdown(
+        f'<div class="unit-disp">{st.session_state[ukey]:g}u</div>',
         unsafe_allow_html=True,
     )
+
+    st.markdown('<div class="step-btn">', unsafe_allow_html=True)
+    if c_p.button("+", key=f"p_{pick_id}"):
+        st.session_state[ukey] = min(10.0, st.session_state[ukey] + 0.5)
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="track-btn-wrap">', unsafe_allow_html=True)
+    if c_t.button("◆ TRACK", key=f"b_{pick_id}"):
+        mark_bet_placed(conn, pick_id, st.session_state[ukey])
+        conn.close()
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def _game_track_strip(conn, p: dict) -> None:
-    """Track strip for daily_game_picks rows."""
+    """Baseball-base track control below a game pick card."""
     pick_id = p["id"]
-    score   = p.get("signal_score") or 0
     result  = p.get("result") or "PENDING"
 
     if p["bet_placed"] == 1:
-        units_esc = _html.escape(str(p.get("units_wagered") or "?"))
-        st.markdown(
-            f'<div style="padding:6px 0 2px;font-size:12px;color:#34d399;font-weight:600">'
-            f'Tracked &nbsp;·&nbsp; {units_esc}u placed</div>',
-            unsafe_allow_html=True,
-        )
-        return
-    if p["bet_placed"] == -1:
-        st.markdown(
-            '<div style="padding:6px 0 2px;font-size:12px;color:#475569">Skipped</div>',
-            unsafe_allow_html=True,
-        )
+        c_rel, _ = st.columns([1.2, 4])
+        st.markdown('<div class="release-btn-wrap">', unsafe_allow_html=True)
+        if c_rel.button("◆ Release", key=f"grel_{pick_id}"):
+            untrack_game_bet(conn, pick_id)
+            conn.close()
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
         return
 
-    if result != "PENDING":
-        st.markdown(
-            '<div style="padding:6px 0 2px;font-size:11px;color:#475569;font-style:italic">Not tracked</div>',
-            unsafe_allow_html=True,
-        )
+    if p["bet_placed"] == -1 or result != "PENDING":
+        st.markdown('<div class="track-note">Not tracked</div>', unsafe_allow_html=True)
         return
 
-    rec = normalize_recommendation(p.get("recommendation", ""))
-    max_units = 1.5 if rec == "A_BET" else 1.0
-    default_units = 1.0 if rec == "A_BET" else 0.5
-    step_units = 0.5 if rec == "A_BET" else 0.25
-    u_col, b_col, s_col, _ = st.columns([1.2, 1.2, 0.9, 3])
-    units = u_col.number_input(
-        "Units", min_value=0.25, max_value=float(max_units), value=default_units, step=step_units,
-        key=f"gu_{pick_id}", label_visibility="collapsed",
-        help=f"Max {max_units:g}u for {_rec_label(p.get('recommendation', ''))}",
-    )
-    if b_col.button("Track Bet", key=f"gb_{pick_id}"):
-        mark_game_bet_placed(conn, pick_id, units)
-        conn.close()
+    ukey = f"gu_{pick_id}"
+    if ukey not in st.session_state:
+        st.session_state[ukey] = 1.0
+
+    c_m, c_d, c_p, c_t, _ = st.columns([0.4, 0.55, 0.4, 1.4, 3])
+
+    st.markdown('<div class="step-btn">', unsafe_allow_html=True)
+    if c_m.button("−", key=f"gm_{pick_id}"):
+        st.session_state[ukey] = max(0.5, st.session_state[ukey] - 0.5)
         st.rerun()
-    if s_col.button("Skip", key=f"gs_{pick_id}"):
-        mark_game_bet_skipped(conn, pick_id)
-        conn.close()
-        st.rerun()
-    st.markdown(
-        '<div style="font-size:10px;color:#3a4058;margin-top:2px">Elite: max 1.5u default 1u; Good: max 1u default 0.5u</div>',
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    c_d.markdown(
+        f'<div class="unit-disp">{st.session_state[ukey]:g}u</div>',
         unsafe_allow_html=True,
     )
+
+    st.markdown('<div class="step-btn">', unsafe_allow_html=True)
+    if c_p.button("+", key=f"gp_{pick_id}"):
+        st.session_state[ukey] = min(10.0, st.session_state[ukey] + 0.5)
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="track-btn-wrap">', unsafe_allow_html=True)
+    if c_t.button("◆ TRACK", key=f"gb_{pick_id}"):
+        mark_game_bet_placed(conn, pick_id, st.session_state[ukey])
+        conn.close()
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def _render_game_picks(conn, picks: list, show_all: bool, min_score: int,
@@ -1819,28 +1953,37 @@ def main() -> None:
     # Header
     dt_obj   = datetime.strptime(today, "%Y-%m-%d")
     date_str = f"{dt_obj.strftime('%b')} {dt_obj.day}, {dt_obj.year}"
+    _SVG_BALL = (
+        '<svg width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">'
+        '<circle cx="18" cy="18" r="17" fill="#f4ecd8" stroke="#c8b89a" stroke-width="1"/>'
+        '<path d="M10 7 C7 12,7 24,10 29" fill="none" stroke="#c0392b" stroke-width="1.8" stroke-linecap="round"/>'
+        '<path d="M26 7 C29 12,29 24,26 29" fill="none" stroke="#c0392b" stroke-width="1.8" stroke-linecap="round"/>'
+        '<line x1="9" y1="13" x2="13" y2="14" stroke="#c0392b" stroke-width="1" stroke-linecap="round"/>'
+        '<line x1="9" y1="17" x2="13" y2="18" stroke="#c0392b" stroke-width="1" stroke-linecap="round"/>'
+        '<line x1="9" y1="21" x2="13" y2="22" stroke="#c0392b" stroke-width="1" stroke-linecap="round"/>'
+        '<line x1="27" y1="13" x2="23" y2="14" stroke="#c0392b" stroke-width="1" stroke-linecap="round"/>'
+        '<line x1="27" y1="17" x2="23" y2="18" stroke="#c0392b" stroke-width="1" stroke-linecap="round"/>'
+        '<line x1="27" y1="21" x2="23" y2="22" stroke="#c0392b" stroke-width="1" stroke-linecap="round"/>'
+        '</svg>'
+    )
     st.markdown(f"""
-<div style="
-    background: #1a1d27;
-    border: 1px solid #252a38;
-    border-radius: 10px;
-    padding: 18px 24px;
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-">
-  <div>
-    <div style="font-size:26px;font-weight:700;color:#f1f5f9;letter-spacing:1px;line-height:1.1">
-      ⚾ &nbsp;MLB Prop Scout
-    </div>
-    <div style="font-size:11px;color:#475569;letter-spacing:2px;text-transform:uppercase;margin-top:4px">
-      Bovada vs consensus &nbsp;·&nbsp; auto-graded &nbsp;·&nbsp; signal-scored
+<div style="background:#0c1810;border:1px solid #1f4d39;border-radius:5px;
+    padding:14px 22px;margin-bottom:14px;display:flex;align-items:center;
+    justify-content:space-between;font-family:'IBM Plex Mono',monospace">
+  <div style="display:flex;align-items:center;gap:14px">
+    {_SVG_BALL}
+    <div>
+      <div style="font-size:20px;font-weight:700;color:#f4ecd8;letter-spacing:0.5px;line-height:1.1">
+        MLB PROP SCOUT
+      </div>
+      <div style="font-size:10px;color:#4a6355;letter-spacing:2px;text-transform:uppercase;margin-top:4px">
+        Bovada vs consensus &middot; auto-graded &middot; signal-scored
+      </div>
     </div>
   </div>
   <div style="text-align:right">
-    <div style="font-size:20px;font-weight:600;color:#818cf8">{date_str}</div>
-    <div style="font-size:10px;color:#475569;letter-spacing:2px;text-transform:uppercase;margin-top:2px">Game Day</div>
+    <div style="font-size:18px;font-weight:700;color:#ffd23f;font-feature-settings:'tnum'">{date_str}</div>
+    <div style="font-size:10px;color:#4a6355;letter-spacing:2px;text-transform:uppercase;margin-top:3px">GAME DAY</div>
   </div>
 </div>
 """, unsafe_allow_html=True)

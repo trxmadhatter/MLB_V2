@@ -380,6 +380,22 @@ def mark_game_bet_skipped(conn: PgConn, pick_id: int) -> None:
     conn.commit()
 
 
+def untrack_bet(conn: PgConn, pick_id: int) -> None:
+    conn.execute(
+        "UPDATE daily_picks SET bet_placed=0, units_wagered=NULL WHERE id=%s",
+        (pick_id,),
+    )
+    conn.commit()
+
+
+def untrack_game_bet(conn: PgConn, pick_id: int) -> None:
+    conn.execute(
+        "UPDATE daily_game_picks SET bet_placed=0, units_wagered=NULL WHERE id=%s",
+        (pick_id,),
+    )
+    conn.commit()
+
+
 def update_pick_confidence(conn: PgConn, pick_id: int, score: int,
                            factors: list[str]) -> None:
     import json
