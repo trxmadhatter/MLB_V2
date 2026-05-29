@@ -428,7 +428,12 @@ def run_backtest_from_db(
 
 def _report_summary(bt_conn: sqlite3.Connection) -> list:
     return bt_conn.execute("""
-        SELECT recommendation,
+        SELECT CASE recommendation
+                   WHEN 'RECOMMENDED' THEN 'A_BET'
+                   WHEN 'LEAN'        THEN 'B_BET'
+                   WHEN 'NO_BET'      THEN 'PASS'
+                   ELSE recommendation
+               END AS tier,
                COUNT(*) AS total,
                SUM(CASE WHEN result='WIN'  THEN 1 ELSE 0 END) AS wins,
                SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END) AS losses,
@@ -440,8 +445,8 @@ def _report_summary(bt_conn: sqlite3.Connection) -> list:
                      / NULLIF(SUM(CASE WHEN result IN ('WIN','LOSS','PUSH') THEN 1 ELSE 0 END), 0), 1) AS roi_pct
         FROM backtest_picks
         WHERE result != 'PENDING'
-        GROUP BY recommendation
-        ORDER BY CASE recommendation WHEN 'RECOMMENDED' THEN 0 WHEN 'LEAN' THEN 1 ELSE 2 END
+        GROUP BY tier
+        ORDER BY CASE tier WHEN 'A_BET' THEN 0 WHEN 'B_BET' THEN 1 ELSE 2 END
     """).fetchall()
 
 
@@ -457,7 +462,7 @@ def _report_by_market(bt_conn: sqlite3.Connection) -> list:
                ROUND(SUM(CASE WHEN result != 'PENDING' THEN COALESCE(profit_units,0) ELSE 0 END), 2) AS net_units
         FROM backtest_picks
         WHERE result != 'PENDING'
-          AND recommendation IN ('RECOMMENDED', 'LEAN')
+          AND recommendation IN ('RECOMMENDED', 'LEAN', 'A_BET', 'B_BET')
         GROUP BY market_key, recommendation
         ORDER BY net_units DESC
     """).fetchall()
@@ -515,7 +520,7 @@ def print_report(
         wlp = f"{r['wins']}-{r['losses']}-{r['pushes']}"
         wp  = f"{r['win_pct']:.1f}%" if r['win_pct'] is not None else "  --"
         roi = f"{r['roi_pct']:+.1f}%" if r['roi_pct'] is not None else "  --"
-        print(f"  {r['recommendation']:<14} {r['total']:>5}  {wlp:>11}  {wp:>6}  {r['net_units']:>+7.2f}  {roi:>6}")
+        print(f"  {r['tier']:<14} {r['total']:>5}  {wlp:>11}  {wp:>6}  {r['net_units']:>+7.2f}  {roi:>6}")
 
     print("\n-- BY MARKET (LEAN+) ---------------------------------------")
     print(f"  {'MARKET':<16} {'TIER':<14} {'TOT':>4}  {'W-L-P':>11}  {'WIN%':>6}  {'NET':>7}")

@@ -404,7 +404,23 @@ def _analyze_games(conn, pulled_at: str, today: str,
         bov_fair_a, bov_fair_b = vig_remove_pair(bov_a["price"], bov_b["price"])
 
         # consensus requires 'Over'/'Under' selections — map team names for h2h/spreads
-        if market_key != "totals":
+        # For spreads, also filter to the same point as Bovada to avoid mixing lines
+        if market_key == "spreads":
+            consensus_rows = []
+            for r in group_rows:
+                r2 = dict(r)
+                if r2["selection"].lower() == meta["home_team"].lower():
+                    if r2["point"] != bov_a["point"]:
+                        continue
+                    r2["selection"] = "Over"
+                elif r2["selection"].lower() == meta["away_team"].lower():
+                    if r2["point"] != bov_b["point"]:
+                        continue
+                    r2["selection"] = "Under"
+                else:
+                    continue
+                consensus_rows.append(r2)
+        elif market_key == "h2h":
             consensus_rows = []
             for r in group_rows:
                 r2 = dict(r)
@@ -439,18 +455,20 @@ def _analyze_games(conn, pulled_at: str, today: str,
             bev  = bovada_break_even(bov["price"])
             edge = compute_edge(fair_prob, bov_fair)
 
-            # score_game_total expects 'Over'/'Under'; Home→Over, Away→Under
-            total_sel   = "Over" if is_a_side else "Under"
-            total_point = bov_a["point"] if market_key == "totals" else 8.5
-            sig_score, breakdown = score_game_total(
-                home_team=meta["home_team"],
-                away_team=meta["away_team"],
-                selection=total_sel,
-                point=total_point,
-                edge=edge,
-                game_date=today,
-                game_data=game_data,
-            )
+            if market_key == "totals":
+                total_sel = "Over" if is_a_side else "Under"
+                sig_score, breakdown = score_game_total(
+                    home_team=meta["home_team"],
+                    away_team=meta["away_team"],
+                    selection=total_sel,
+                    point=bov_a["point"],
+                    edge=edge,
+                    game_date=today,
+                    game_data=game_data,
+                )
+            else:
+                # h2h/spreads: no applicable totals signals — neutral score, edge-only
+                sig_score, breakdown = 50, []
 
             rec = classify_by_score(sig_score, edge, market_key, selection,
                                     price=bov["price"])
