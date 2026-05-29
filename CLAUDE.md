@@ -19,6 +19,12 @@
 - Edge thresholds: ≥4% → bet, ≥2% → lean, <2% → no bet.
 - Stale data: consensus snapshot >60 min old OR Bovada last_update >30 min before game time → skip.
 
+## Game markets
+- `totals` are signal-scored with `score_game_total()`.
+- `h2h` moneyline and `spreads` runline are edge-only markets. They do not have a real signal model or breakdown.
+- Do not display or reason about moneyline/runline `signal_score=100` as confidence. Older rows may still contain that placeholder; UI/reporting should label them `Edge only`.
+- New daily runs should store `NULL` for moneyline/runline `signal_score` while still using an internal temporary high score for edge-only classification.
+
 ## Hard constraints
 - Never write to or read from `C:\Users\jesse\NBA V1`. That project is separate and must stay untouched.
 - Do not copy code from NBA V1.
